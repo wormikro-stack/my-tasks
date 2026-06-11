@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Мои Задачи</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg1: #0a0a0f;
+    --bg2: #0f0f1a;
+    --glass: rgba(255,255,255,0.05);
+    --glass2: rgba(255,255,255,0.08);
+    --glass3: rgba(255,255,255,0.12);
+    --glass-border: rgba(255,255,255,0.10);
+    --glass-border2: rgba(255,255,255,0.18);
+    --text: #f0f4ff;
+    --text2: rgba(200,215,255,0.55);
+    --text3: rgba(200,215,255,0.28);
+    --accent: #4fa3ff;
+    --green: #34d85c;
+    --orange: #ff9f40;
+    --red: #ff5e57;
+    --radius: 18px;
+    --radius2: 13px;
+    --radius3: 9px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg1);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  body::before, body::after {
+    content:''; position:fixed; border-radius:50%; pointer-events:none; z-index:0;
+    filter: blur(90px);
+  }
+  body::before {
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(60,100,255,0.12) 0%, transparent 70%);
+    top: -150px; left: -100px;
+  }
+  body::after {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(140,60,255,0.10) 0%, transparent 70%);
+    bottom: -100px; right: -100px;
+  }
+
+  .header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,20,0.65);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header-left { display:flex; align-items:center; gap:12px; }
+  .header-icon {
+    width: 38px; height: 38px; border-radius: 11px;
+    background: linear-gradient(135deg, rgba(79,163,255,0.6), rgba(140,60,255,0.5));
+    border: 1px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 2px 16px rgba(79,163,255,0.25);
+  }
+  .header-title { font-size: 18px; font-weight: 600; letter-spacing: -0.4px; }
+  .header-actions { display:flex; gap:8px; z-index:1; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 16px; border-radius: 980px;
+    font-size: 13px; font-weight: 500;
+    border: none; cursor: pointer;
+    transition: all 0.18s ease;
+    font-family: inherit; position: relative; z-index:1;
+  }
+  .btn:active { transform: scale(0.95); }
+  .btn-primary {
+    background: linear-gradient(135deg, rgba(79,163,255,0.85), rgba(100,120,255,0.85));
+    color: #fff; border: 1px solid rgba(255,255,255,0.2);
+    box-shadow: 0 2px 16px rgba(79,163,255,0.3);
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, rgba(79,163,255,1), rgba(100,120,255,1));
+    box-shadow: 0 4px 20px rgba(79,163,255,0.45);
+  }
+  .btn-secondary {
+    background: var(--glass2); color: var(--text);
+    border: 1px solid var(--glass-border); backdrop-filter: blur(10px);
+  }
+  .btn-secondary:hover { background: var(--glass3); border-color: var(--glass-border2); }
+  .btn-orange {
+    background: rgba(255,159,64,0.12); color: var(--orange);
+    border: 1px solid rgba(255,159,64,0.2);
+  }
+  .btn-orange:hover { background: rgba(255,159,64,0.22); border-color: rgba(255,159,64,0.3); }
+  .btn-danger {
+    background: rgba(255,94,87,0.12); color: var(--red);
+    border: 1px solid rgba(255,94,87,0.2);
+  }
+  .btn-danger:hover { background: rgba(255,94,87,0.22); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn-icon { padding: 5px 8px; font-size: 11px; }
+
+  .container { max-width: 650px; margin: 0 auto; padding: 22px 20px 80px; position:relative; z-index:1; }
+
+  .filter-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    padding: 10px 14px; border-radius: var(--radius2);
+    margin-bottom: 20px; backdrop-filter: blur(16px);
+  }
+  .date-input-nav {
+    background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
+    color: var(--text); padding: 6px 12px; border-radius: var(--radius3);
+    font-family: inherit; font-size: 13px; outline: none; cursor: pointer;
+  }
+
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--glass); border: 1px solid var(--glass-border);
+    border-radius: var(--radius2); padding: 12px 14px;
+    backdrop-filter: blur(16px); text-align: center;
+  }
+  .stat-val { font-size: 20px; font-weight: 700; }
+  .stat-label { font-size: 10px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+  .task-item {
+    background: var(--glass); border: 1px solid var(--glass-border);
+    border-radius: var(--radius2); padding: 14px;
+    display: flex; align-items: center; gap: 12px;
+    backdrop-filter: blur(20px); transition: all 0.2s;
+    position: relative; animation: slideIn 0.2s ease both;
+  }
+  .task-item:hover { border-color: var(--glass-border2); box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+
+  .checkbox-wrapper { display: flex; align-items: center; cursor: pointer; }
+  .custom-checkbox {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid var(--text3); position: relative;
+    transition: all 0.18s ease; flex-shrink: 0;
+  }
+  .task-item.completed .custom-checkbox { background: var(--green); border-color: var(--green); }
+  .task-item.completed .custom-checkbox::after {
+    content: '✓'; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); color: #fff; font-size: 11px; font-weight: bold;
+  }
+
+  .task-content { flex: 1; min-width: 0; cursor: pointer; }
+  .task-title { font-size: 14px; font-weight: 500; transition: color 0.18s, text-decoration 0.18s; }
+  .task-item.completed .task-title { color: var(--text3); text-decoration: line-through; }
+  .task-meta { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-size: 11px; color: var(--text2); }
+  .task-tag {
+    padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.06);
+    border: 1px solid var(--glass-border); font-size: 10px; text-transform: uppercase;
+  }
+
+  .task-actions { opacity: 0; pointer-events: none; transition: opacity 0.15s ease; }
+  .task-item:hover .task-actions { opacity: 1; pointer-events: auto; }
+  @media (hover: none) { .task-actions { opacity: 1; pointer-events: auto; } }
+
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(5,5,15,0.7); backdrop-filter: blur(12px);
+    display: flex; align-items: flex-end; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.22s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: rgba(18,18,30,0.92); backdrop-filter: blur(40px) saturate(200%);
+    border-radius: var(--radius) var(--radius) 0 0;
+    border: 1px solid var(--glass-border2); border-bottom: none;
+    width: 100%; max-width: 500px; padding: 22px;
+    transform: translateY(40px); transition: transform 0.32s cubic-bezier(.25,.72,0,1);
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-handle { width: 34px; height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; margin: 0 auto 18px; }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 18px; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--text3); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-input, .form-select {
+    width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+    border-radius: var(--radius3); padding: 11px 13px; color: var(--text); font-size: 14px; font-family: inherit; outline: none;
+  }
+  .form-input:focus, .form-select:focus { border-color: rgba(79,163,255,0.5); }
+  .form-select option { background: #1a1a2e; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+  .modal-actions .btn { flex: 1; }
+
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(16px);
+    background: rgba(30,30,50,0.9); backdrop-filter: blur(16px); border: 1px solid var(--glass-border2);
+    border-radius: 980px; padding: 10px 20px; font-size: 13px; color: var(--text);
+    opacity: 0; transition: all 0.28s; pointer-events: none; z-index: 999;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .empty-state { text-align: center; padding: 44px 20px; color: var(--text3); }
+
+  .checkbox-row {
+    display: flex; align-items: center; gap: 10px; margin-top: 18px;
+    padding: 12px; background: rgba(255,255,255,0.03); border-radius: var(--radius3);
+    border: 1px solid var(--glass-border); cursor: pointer; transition: all 0.15s;
+  }
+  .checkbox-row:hover { background: rgba(255,255,255,0.06); }
+  .checkbox-row .custom-checkbox { width: 22px; height: 22px; }
+
+  @keyframes slideIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-icon">✓</div>
+    <div>
+      <div class="header-title">Мои Задания</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-secondary btn-sm" onclick="openSyncModal()">☁️ Синхронизация</button>
+    <button class="btn btn-primary btn-sm" onclick="openAddTask()">+ Дело</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="filter-bar">
+    <span style="font-size: 13px; color: var(--text2)">День:</span>
+    <input type="date" id="filterDate" class="date-input-nav" onchange="filterTasks()">
+    <button class="btn btn-secondary btn-sm" onclick="setFilterAll()">Все дни</button>
+    <button class="btn btn-orange btn-sm" id="btnTransfer" onclick="openTransferModal()" style="margin-left: auto; display: none;">↷ Перенести дела</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-val" id="statTotal">0</div>
+      <div class="stat-label">Всего дел</div>
+    </div>
+    <div class="stat-card" style="border-color: rgba(52,216,92,0.2)">
+      <div class="stat-val" id="statDone" style="color: var(--green)">0</div>
+      <div class="stat-label">Выполнено</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="statLeft">0</div>
+      <div class="stat-label">Осталось</div>
+    </div>
+  </div>
+
+  <div id="taskList" class="task-list"></div>
+  <div id="emptyState" class="empty-state" style="display:none"><p>На этот день задач нет 🗓️</p></div>
+</div>
+
+<div class="modal-overlay" id="modalTask">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Новое задание</div>
+    <div class="form-group">
+      <div class="form-label">Что нужно сделать?</div>
+      <input class="form-input" id="taskName" placeholder="Например: Проверить приходы по 1С">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Дата</div>
+      <input class="form-input" id="taskDate" type="date">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Категория</div>
+      <select class="form-select" id="taskCategory">
+        <option value="Работа">💼 Работа</option>
+        <option value="Личное">👤 Личное</option>
+        <option value="Важное">🔥 Важное</option>
+        <option value="Звонки">📞 Звонки</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalTask')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveTask()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalTransfer">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Перенос заданий</div>
+    <div class="form-group">
+      <div class="form-label">На какой день перенести?</div>
+      <input class="form-input" id="transferTargetDate" type="date">
+    </div>
+    <div class="checkbox-row" onclick="toggleTransferCheck()">
+      <div class="custom-checkbox" id="transferCheckUI"></div>
+      <div>
+        <div style="font-size: 14px; font-weight: 500;">Удалить из текущего дня</div>
+        <div style="font-size: 11px; color: var(--text2); margin-top: 2px;">Если убрать крыжик, задания просто скопируются</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalTransfer')">Отмена</button>
+      <button class="btn btn-orange" onclick="executeTransfer()">Выполнить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalSync">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">☁️ Синхронизация</div>
+
+    <p style="font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.6">
+      Сохраните данные на одном устройстве — затем загрузите на другом. Всё хранится в облаке автоматически.
+    </p>
+
+    <button class="btn btn-primary" id="btnSaveCloud" style="width: 100%; padding: 13px; font-size: 14px; margin-bottom: 10px;" onclick="saveToCloud()">
+      ⬆️ Сохранить данные в облако
+    </button>
+
+    <button class="btn btn-orange" id="btnLoadCloud" style="width: 100%; padding: 13px; font-size: 14px; margin-bottom: 20px;" onclick="loadFromCloud()">
+      ⬇️ Загрузить данные из облака
+    </button>
+
+    <div id="syncStatus" style="display:none; font-size: 12px; text-align: center; padding: 8px; border-radius: 8px;"></div>
+
+    <div class="modal-actions" style="margin-top: 14px;">
+      <button class="btn btn-secondary" onclick="closeModal('modalSync')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ОСНОВНЫЕ ДАННЫЕ
+let todos = JSON.parse(localStorage.getItem('todo_items') || '[]');
+let deleteFromOldDay = true;
+
+function init() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('filterDate').value = today;
+  render();
+}
+
+function saveToStorage() {
+  localStorage.setItem('todo_items', JSON.stringify(todos));
+  render();
+}
+
+// РЕНДЕР И ЛОГИКА ЗАДАЧ (Без изменений)
+function render() {
+  const list = document.getElementById('taskList');
+  const empty = document.getElementById('emptyState');
+  const filterDate = document.getElementById('filterDate').value;
+
+  let filtered = todos;
+  if (filterDate) filtered = todos.filter(t => t.date === filterDate);
+  filtered.sort((a, b) => a.completed - b.completed);
+  list.innerHTML = '';
+
+  const btnTransfer = document.getElementById('btnTransfer');
+  if (filterDate && filtered.some(t => !t.completed)) {
+    btnTransfer.style.display = 'inline-flex';
+  } else {
+    btnTransfer.style.display = 'none';
+  }
+
+  if (filtered.length === 0) {
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    filtered.forEach(item => {
+      const div = document.createElement('div');
+      div.className = `task-item ${item.completed ? 'completed' : ''}`;
+      div.innerHTML = `
+        <div class="checkbox-wrapper" onclick="toggleComplete('${item.id}')"><div class="custom-checkbox"></div></div>
+        <div class="task-content" onclick="toggleComplete('${item.id}')">
+          <div class="task-title">${esc(item.name)}</div>
+          <div class="task-meta"><span class="task-tag">${esc(item.category)}</span><span>📅 ${formatDate(item.date)}</span></div>
+        </div>
+        <div class="task-actions"><button class="btn btn-danger btn-icon btn-sm" onclick="deleteTask('${item.id}', event)">✕</button></div>
+      `;
+      list.appendChild(div);
+    });
+  }
+  updateStats(filtered);
+}
+
+function updateStats(filteredItems) {
+  const total = filteredItems.length;
+  const done = filteredItems.filter(t => t.completed).length;
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statDone').textContent = done;
+  document.getElementById('statLeft').textContent = total - done;
+}
+
+function openAddTask() {
+  document.getElementById('taskName').value = '';
+  document.getElementById('taskDate').value = document.getElementById('filterDate').value || new Date().toISOString().split('T')[0];
+  openModal('modalTask');
+}
+
+function saveTask() {
+  const name = document.getElementById('taskName').value.trim();
+  const date = document.getElementById('taskDate').value;
+  const category = document.getElementById('taskCategory').value;
+  if (!name) { showToast('Введите название задания'); return; }
+  if (!date) { showToast('Выберите дату'); return; }
+  todos.push({ id: 'todo_' + Date.now(), name, date, category, completed: false });
+  saveToStorage(); closeModal('modalTask'); showToast('Задание добавлено');
+}
+
+function toggleComplete(id) {
+  const item = todos.find(t => t.id === id);
+  if (item) { item.completed = !item.completed; saveToStorage(); }
+}
+
+function deleteTask(id, event) {
+  event.stopPropagation();
+  if (confirm('Удалить это задание?')) {
+    todos = todos.filter(t => t.id !== id);
+    saveToStorage(); showToast('Задание удалено');
+  }
+}
+
+// ЛОГИКА ПЕРЕНОСА ЗАДАЧ
+function openTransferModal() {
+  const filterDate = document.getElementById('filterDate').value;
+  let nextDay = new Date(filterDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+  document.getElementById('transferTargetDate').value = nextDay.toISOString().split('T')[0];
+  deleteFromOldDay = true;
+  updateTransferCheckboxUI();
+  openModal('modalTransfer');
+}
+
+function toggleTransferCheck() { deleteFromOldDay = !deleteFromOldDay; updateTransferCheckboxUI(); }
+
+function updateTransferCheckboxUI() {
+  const chk = document.getElementById('transferCheckUI');
+  if (deleteFromOldDay) {
+    chk.style.background = 'var(--green)'; chk.style.borderColor = 'var(--green)';
+    chk.innerHTML = '<span style="color:#fff;font-size:12px;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:bold;">✓</span>';
+  } else {
+    chk.style.background = 'transparent'; chk.style.borderColor = 'var(--text3)'; chk.innerHTML = '';
+  }
+}
+
+function executeTransfer() {
+  const filterDate = document.getElementById('filterDate').value;
+  const targetDate = document.getElementById('transferTargetDate').value;
+  if (!targetDate) { showToast('Выберите дату переноса'); return; }
+  if (filterDate === targetDate) { showToast('Выбрана та же дата'); return; }
+
+  const tasksToMove = todos.filter(t => t.date === filterDate && !t.completed);
+  let count = tasksToMove.length;
+
+  tasksToMove.forEach(task => {
+    if (deleteFromOldDay) { task.date = targetDate; } 
+    else {
+      todos.push({ id: 'todo_' + Date.now() + Math.random().toString(36).substring(2, 7), name: task.name, date: targetDate, category: task.category, completed: false });
+    }
+  });
+
+  document.getElementById('filterDate').value = targetDate;
+  saveToStorage(); closeModal('modalTransfer');
+  showToast(deleteFromOldDay ? `Перенесено: ${count}` : `Скопировано: ${count}`);
+}
+
+// ==========================================
+// JSONBIN СИНХРОНИЗАЦИЯ
+// ==========================================
+
+const JSONBIN_BIN_ID = '6a2b2194f5f4af5e29e23671';
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+
+function openSyncModal() {
+  document.getElementById('syncStatus').style.display = 'none';
+  openModal('modalSync');
+}
+
+function setSyncStatus(msg, color) {
+  const el = document.getElementById('syncStatus');
+  el.textContent = msg;
+  el.style.background = color === 'green' ? 'rgba(52,216,92,0.1)' : color === 'red' ? 'rgba(255,94,87,0.1)' : 'rgba(255,255,255,0.05)';
+  el.style.color = color === 'green' ? 'var(--green)' : color === 'red' ? 'var(--red)' : 'var(--text2)';
+  el.style.display = 'block';
+}
+
+async function saveToCloud() {
+  const btn = document.getElementById('btnSaveCloud');
+  btn.textContent = '⏳ Сохранение...'; btn.disabled = true;
+  setSyncStatus('Отправляю данные...', 'info');
+
+  try {
+    const response = await fetch(JSONBIN_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ todos, savedAt: new Date().toISOString() })
+    });
+
+    if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+
+    setSyncStatus(`✓ Сохранено! ${todos.length} задач(и) — ${new Date().toLocaleTimeString('ru')}`, 'green');
+    showToast('Данные сохранены в облако!');
+  } catch (e) {
+    setSyncStatus('✗ Ошибка при сохранении. Проверьте интернет.', 'red');
+    showToast('Ошибка сохранения');
+  } finally {
+    btn.textContent = '⬆️ Сохранить данные в облако'; btn.disabled = false;
+  }
+}
+
+async function loadFromCloud() {
+  const btn = document.getElementById('btnLoadCloud');
+  btn.textContent = '⏳ Загрузка...'; btn.disabled = true;
+  setSyncStatus('Загружаю данные...', 'info');
+
+  try {
+    const response = await fetch(JSONBIN_URL + '/latest', {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+
+    const data = await response.json();
+    const loadedTodos = data.record?.todos;
+
+    if (!Array.isArray(loadedTodos)) throw new Error('Неверный формат данных');
+
+    if (confirm(`Загрузить ${loadedTodos.length} задач(и) из облака? Текущие данные будут заменены.`)) {
+      todos = loadedTodos;
+      saveToStorage();
+      const savedAt = data.record?.savedAt ? new Date(data.record.savedAt).toLocaleString('ru') : '—';
+      setSyncStatus(`✓ Загружено ${loadedTodos.length} задач(и). Сохранено: ${savedAt}`, 'green');
+      showToast('Данные загружены из облака!');
+    } else {
+      setSyncStatus('Загрузка отменена.', 'info');
+    }
+  } catch (e) {
+    setSyncStatus('✗ Ошибка загрузки. Проверьте интернет.', 'red');
+    showToast('Ошибка загрузки');
+  } finally {
+    btn.textContent = '⬇️ Загрузить данные из облака'; btn.disabled = false;
+  }
+}
+
+// УТИЛИТЫ
+function filterTasks() { render(); }
+function setFilterAll() { document.getElementById('filterDate').value = ''; render(); }
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el => { el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); }); });
+function esc(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+function formatDate(dateStr) { if (!dateStr) return ''; const [y, m, d] = dateStr.split('-'); return `${d}.${m}.${y}`; }
+
+init();
+</script>
+</body>
+</html>
