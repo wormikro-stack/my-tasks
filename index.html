@@ -164,9 +164,27 @@
     border: 1px solid var(--glass-border); font-size: 10px; text-transform: uppercase;
   }
 
-  .task-actions { opacity: 0; pointer-events: none; transition: opacity 0.15s ease; }
+  .task-actions { opacity: 0; pointer-events: none; transition: opacity 0.15s ease; display: flex; gap: 4px; }
   .task-item:hover .task-actions { opacity: 1; pointer-events: auto; }
   @media (hover: none) { .task-actions { opacity: 1; pointer-events: auto; } }
+
+  .btn-blue {
+    background: rgba(79,163,255,0.12); color: var(--accent);
+    border: 1px solid rgba(79,163,255,0.2);
+  }
+  .btn-blue:hover { background: rgba(79,163,255,0.22); }
+
+  .template-item {
+    background: var(--glass); border: 1px solid var(--glass-border);
+    border-radius: var(--radius3); padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 6px; transition: all 0.15s;
+  }
+  .template-item:hover { border-color: var(--glass-border2); }
+  .template-item-name { flex: 1; font-size: 13px; }
+  .template-item-tag { font-size: 10px; color: var(--text3); padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); text-transform: uppercase; }
+  .template-actions { display: flex; gap: 4px; }
+  .templates-empty { text-align: center; padding: 20px; color: var(--text3); font-size: 13px; }
 
   .modal-overlay {
     position: fixed; inset: 0; z-index: 500;
@@ -228,6 +246,7 @@
   </div>
   <div class="header-actions">
     <button class="btn btn-secondary btn-sm" onclick="openSyncModal()">☁️ Синхронизация</button>
+    <button class="btn btn-secondary btn-sm" onclick="openTemplatesModal()">📋 Шаблоны</button>
     <button class="btn btn-primary btn-sm" onclick="openAddTask()">+ Дело</button>
   </div>
 </div>
@@ -262,7 +281,7 @@
 <div class="modal-overlay" id="modalTask">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title">Новое задание</div>
+    <div class="modal-title" id="modalTaskTitle">Новое задание</div>
     <div class="form-group">
       <div class="form-label">Что нужно сделать?</div>
       <input class="form-input" id="taskName" placeholder="Например: Проверить приходы по 1С">
@@ -280,6 +299,7 @@
         <option value="Звонки">📞 Звонки</option>
       </select>
     </div>
+    <button class="btn btn-secondary" style="width:100%; margin-bottom: 4px; font-size: 12px;" onclick="saveAsTemplate()">📋 Сохранить как шаблон</button>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalTask')">Отмена</button>
       <button class="btn btn-primary" onclick="saveTask()">Сохранить</button>
@@ -305,6 +325,61 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalTransfer')">Отмена</button>
       <button class="btn btn-orange" onclick="executeTransfer()">Выполнить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Перенос одного задания -->
+<div class="modal-overlay" id="modalMoveOne">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">↷ Перенести задание</div>
+    <p id="moveOneTaskName" style="font-size: 13px; color: var(--text2); margin-bottom: 16px; font-style: italic;"></p>
+    <div class="form-group">
+      <div class="form-label">На какой день перенести?</div>
+      <input class="form-input" id="moveOneTargetDate" type="date">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalMoveOne')">Отмена</button>
+      <button class="btn btn-orange" onclick="executeMoveOne()">Перенести</button>
+    </div>
+  </div>
+</div>
+
+<!-- Шаблоны -->
+<div class="modal-overlay" id="modalTemplates">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📋 Шаблоны заданий</div>
+    <div id="templatesList"></div>
+    <div class="modal-actions" style="margin-top: 16px;">
+      <button class="btn btn-secondary" onclick="closeModal('modalTemplates')">Закрыть</button>
+      <button class="btn btn-primary" onclick="applyTemplates()">➕ Добавить на день</button>
+    </div>
+  </div>
+</div>
+
+<!-- Редактирование шаблона -->
+<div class="modal-overlay" id="modalEditTemplate">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="editTemplateTitleLabel">Редактировать шаблон</div>
+    <div class="form-group">
+      <div class="form-label">Название</div>
+      <input class="form-input" id="editTemplateName" placeholder="Название задания">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Категория</div>
+      <select class="form-select" id="editTemplateCategory">
+        <option value="Работа">💼 Работа</option>
+        <option value="Личное">👤 Личное</option>
+        <option value="Важное">🔥 Важное</option>
+        <option value="Звонки">📞 Звонки</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalEditTemplate')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveEditedTemplate()">Сохранить</button>
     </div>
   </div>
 </div>
@@ -339,7 +414,11 @@
 <script>
 // ОСНОВНЫЕ ДАННЫЕ
 let todos = JSON.parse(localStorage.getItem('todo_items') || '[]');
+let templates = JSON.parse(localStorage.getItem('todo_templates') || '[]');
 let deleteFromOldDay = true;
+let editingTaskId = null;
+let movingTaskId = null;
+let editingTemplateId = null;
 
 function init() {
   const today = new Date().toISOString().split('T')[0];
@@ -349,10 +428,11 @@ function init() {
 
 function saveToStorage() {
   localStorage.setItem('todo_items', JSON.stringify(todos));
+  localStorage.setItem('todo_templates', JSON.stringify(templates));
   render();
 }
 
-// РЕНДЕР И ЛОГИКА ЗАДАЧ (Без изменений)
+// РЕНДЕР И ЛОГИКА ЗАДАЧ
 function render() {
   const list = document.getElementById('taskList');
   const empty = document.getElementById('emptyState');
@@ -379,11 +459,15 @@ function render() {
       div.className = `task-item ${item.completed ? 'completed' : ''}`;
       div.innerHTML = `
         <div class="checkbox-wrapper" onclick="toggleComplete('${item.id}')"><div class="custom-checkbox"></div></div>
-        <div class="task-content" onclick="toggleComplete('${item.id}')">
+        <div class="task-content">
           <div class="task-title">${esc(item.name)}</div>
           <div class="task-meta"><span class="task-tag">${esc(item.category)}</span><span>📅 ${formatDate(item.date)}</span></div>
         </div>
-        <div class="task-actions"><button class="btn btn-danger btn-icon btn-sm" onclick="deleteTask('${item.id}', event)">✕</button></div>
+        <div class="task-actions">
+          <button class="btn btn-blue btn-icon btn-sm" title="Редактировать" onclick="openEditTask('${item.id}', event)">✏️</button>
+          <button class="btn btn-orange btn-icon btn-sm" title="Перенести" onclick="openMoveOne('${item.id}', event)">↷</button>
+          <button class="btn btn-danger btn-icon btn-sm" onclick="deleteTask('${item.id}', event)">✕</button>
+        </div>
       `;
       list.appendChild(div);
     });
@@ -400,8 +484,23 @@ function updateStats(filteredItems) {
 }
 
 function openAddTask() {
+  editingTaskId = null;
+  document.getElementById('modalTaskTitle').textContent = 'Новое задание';
   document.getElementById('taskName').value = '';
   document.getElementById('taskDate').value = document.getElementById('filterDate').value || new Date().toISOString().split('T')[0];
+  document.getElementById('taskCategory').value = 'Работа';
+  openModal('modalTask');
+}
+
+function openEditTask(id, event) {
+  event.stopPropagation();
+  const item = todos.find(t => t.id === id);
+  if (!item) return;
+  editingTaskId = id;
+  document.getElementById('modalTaskTitle').textContent = 'Редактировать задание';
+  document.getElementById('taskName').value = item.name;
+  document.getElementById('taskDate').value = item.date;
+  document.getElementById('taskCategory').value = item.category;
   openModal('modalTask');
 }
 
@@ -411,8 +510,16 @@ function saveTask() {
   const category = document.getElementById('taskCategory').value;
   if (!name) { showToast('Введите название задания'); return; }
   if (!date) { showToast('Выберите дату'); return; }
-  todos.push({ id: 'todo_' + Date.now(), name, date, category, completed: false });
-  saveToStorage(); closeModal('modalTask'); showToast('Задание добавлено');
+
+  if (editingTaskId) {
+    const item = todos.find(t => t.id === editingTaskId);
+    if (item) { item.name = name; item.date = date; item.category = category; }
+    saveToStorage(); closeModal('modalTask'); showToast('Задание обновлено');
+    editingTaskId = null;
+  } else {
+    todos.push({ id: 'todo_' + Date.now(), name, date, category, completed: false });
+    saveToStorage(); closeModal('modalTask'); showToast('Задание добавлено');
+  }
 }
 
 function toggleComplete(id) {
@@ -426,6 +533,111 @@ function deleteTask(id, event) {
     todos = todos.filter(t => t.id !== id);
     saveToStorage(); showToast('Задание удалено');
   }
+}
+
+// ПЕРЕНОС ОДНОГО ЗАДАНИЯ
+function openMoveOne(id, event) {
+  event.stopPropagation();
+  const item = todos.find(t => t.id === id);
+  if (!item) return;
+  movingTaskId = id;
+  document.getElementById('moveOneTaskName').textContent = '«' + item.name + '»';
+  const tomorrow = new Date(item.date);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  document.getElementById('moveOneTargetDate').value = tomorrow.toISOString().split('T')[0];
+  openModal('modalMoveOne');
+}
+
+function executeMoveOne() {
+  const targetDate = document.getElementById('moveOneTargetDate').value;
+  if (!targetDate) { showToast('Выберите дату'); return; }
+  const item = todos.find(t => t.id === movingTaskId);
+  if (!item) return;
+  if (item.date === targetDate) { showToast('Выбрана та же дата'); return; }
+  item.date = targetDate;
+  saveToStorage();
+  closeModal('modalMoveOne');
+  showToast('Задание перенесено');
+  movingTaskId = null;
+}
+
+// ШАБЛОНЫ
+function saveAsTemplate() {
+  const name = document.getElementById('taskName').value.trim();
+  const category = document.getElementById('taskCategory').value;
+  if (!name) { showToast('Введите название для шаблона'); return; }
+  if (templates.some(t => t.name === name)) { showToast('Такой шаблон уже есть'); return; }
+  templates.push({ id: 'tpl_' + Date.now(), name, category });
+  saveToStorage();
+  showToast('Шаблон сохранён!');
+}
+
+function openTemplatesModal() {
+  renderTemplates();
+  openModal('modalTemplates');
+}
+
+function renderTemplates() {
+  const list = document.getElementById('templatesList');
+  if (templates.length === 0) {
+    list.innerHTML = '<div class="templates-empty">Шаблонов пока нет.<br>Создайте задание и нажмите «Сохранить как шаблон».</div>';
+    return;
+  }
+  list.innerHTML = templates.map(t => `
+    <div class="template-item">
+      <span class="template-item-name">${esc(t.name)}</span>
+      <span class="template-item-tag">${esc(t.category)}</span>
+      <div class="template-actions">
+        <button class="btn btn-blue btn-icon btn-sm" title="Редактировать" onclick="openEditTemplate('${t.id}')">✏️</button>
+        <button class="btn btn-danger btn-icon btn-sm" title="Удалить" onclick="deleteTemplate('${t.id}')">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function applyTemplates() {
+  if (templates.length === 0) { showToast('Нет шаблонов'); return; }
+  const filterDate = document.getElementById('filterDate').value;
+  if (!filterDate) { showToast('Сначала выберите день в фильтре'); return; }
+  let added = 0;
+  templates.forEach(t => {
+    todos.push({ id: 'todo_' + Date.now() + Math.random().toString(36).substring(2,6), name: t.name, date: filterDate, category: t.category, completed: false });
+    added++;
+  });
+  saveToStorage();
+  closeModal('modalTemplates');
+  showToast(`Добавлено ${added} задани(й) из шаблонов`);
+}
+
+function deleteTemplate(id) {
+  if (confirm('Удалить этот шаблон?')) {
+    templates = templates.filter(t => t.id !== id);
+    saveToStorage();
+    renderTemplates();
+    showToast('Шаблон удалён');
+  }
+}
+
+function openEditTemplate(id) {
+  const tpl = templates.find(t => t.id === id);
+  if (!tpl) return;
+  editingTemplateId = id;
+  document.getElementById('editTemplateName').value = tpl.name;
+  document.getElementById('editTemplateCategory').value = tpl.category;
+  openModal('modalEditTemplate');
+}
+
+function saveEditedTemplate() {
+  const name = document.getElementById('editTemplateName').value.trim();
+  const category = document.getElementById('editTemplateCategory').value;
+  if (!name) { showToast('Введите название'); return; }
+  const tpl = templates.find(t => t.id === editingTemplateId);
+  if (tpl) { tpl.name = name; tpl.category = category; }
+  saveToStorage();
+  closeModal('modalEditTemplate');
+  renderTemplates();
+  showToast('Шаблон обновлён');
+  editingTemplateId = null;
 }
 
 // ЛОГИКА ПЕРЕНОСА ЗАДАЧ
@@ -501,12 +713,12 @@ async function saveToCloud() {
     const response = await fetch(JSONBIN_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ todos, savedAt: new Date().toISOString() })
+      body: JSON.stringify({ todos, templates, savedAt: new Date().toISOString() })
     });
 
     if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
 
-    setSyncStatus(`✓ Сохранено! ${todos.length} задач(и) — ${new Date().toLocaleTimeString('ru')}`, 'green');
+    setSyncStatus(`✓ Сохранено! ${todos.length} задач(и), ${templates.length} шаблон(ов) — ${new Date().toLocaleTimeString('ru')}`, 'green');
     showToast('Данные сохранены в облако!');
   } catch (e) {
     setSyncStatus('✗ Ошибка при сохранении. Проверьте интернет.', 'red');
@@ -530,14 +742,16 @@ async function loadFromCloud() {
 
     const data = await response.json();
     const loadedTodos = data.record?.todos;
+    const loadedTemplates = data.record?.templates || [];
 
     if (!Array.isArray(loadedTodos)) throw new Error('Неверный формат данных');
 
-    if (confirm(`Загрузить ${loadedTodos.length} задач(и) из облака? Текущие данные будут заменены.`)) {
+    const savedAt = data.record?.savedAt ? new Date(data.record.savedAt).toLocaleString('ru') : '—';
+    if (confirm(`Загрузить ${loadedTodos.length} задач(и) и ${loadedTemplates.length} шаблон(ов) из облака?\nСохранено: ${savedAt}\n\nТекущие данные будут заменены.`)) {
       todos = loadedTodos;
-      saveToStorage();
-      const savedAt = data.record?.savedAt ? new Date(data.record.savedAt).toLocaleString('ru') : '—';
-      setSyncStatus(`✓ Загружено ${loadedTodos.length} задач(и). Сохранено: ${savedAt}`, 'green');
+      templates = loadedTemplates;
+      saveToStorage(); // сохраняет в localStorage автоматически
+      setSyncStatus(`✓ Загружено ${loadedTodos.length} задач(и), ${loadedTemplates.length} шаблон(ов). Сохранено: ${savedAt}`, 'green');
       showToast('Данные загружены из облака!');
     } else {
       setSyncStatus('Загрузка отменена.', 'info');
