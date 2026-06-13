@@ -189,20 +189,53 @@
   .modal-overlay {
     position: fixed; inset: 0; z-index: 500;
     background: rgba(5,5,15,0.7); backdrop-filter: blur(12px);
-    display: flex; align-items: flex-end; justify-content: center;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding-top: 60px;
     opacity: 0; pointer-events: none; transition: opacity 0.22s;
   }
   .modal-overlay.open { opacity: 1; pointer-events: all; }
   .modal {
     background: rgba(18,18,30,0.92); backdrop-filter: blur(40px) saturate(200%);
-    border-radius: var(--radius) var(--radius) 0 0;
-    border: 1px solid var(--glass-border2); border-bottom: none;
-    width: 100%; max-width: 500px; padding: 22px;
-    transform: translateY(40px); transition: transform 0.32s cubic-bezier(.25,.72,0,1);
+    border-radius: var(--radius);
+    border: 1px solid var(--glass-border2);
+    width: calc(100% - 32px); max-width: 500px; padding: 22px;
+    transform: translateY(-20px); transition: transform 0.32s cubic-bezier(.25,.72,0,1);
+    max-height: calc(100vh - 80px); overflow-y: auto;
   }
   .modal-overlay.open .modal { transform: translateY(0); }
-  .modal-handle { width: 34px; height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; margin: 0 auto 18px; }
+  .modal-handle { display: none; }
   .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 18px; }
+
+  /* Полноэкранное окно невыполненных */
+  .fullscreen-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: var(--bg1);
+    display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none; transition: opacity 0.22s;
+  }
+  .fullscreen-overlay.open { opacity: 1; pointer-events: all; }
+  .fullscreen-header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(10,10,20,0.85); backdrop-filter: blur(24px);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 14px 20px; display: flex; align-items: center; gap: 12px;
+  }
+  .fullscreen-body { flex: 1; overflow-y: auto; padding: 20px; max-width: 650px; width: 100%; margin: 0 auto; }
+  .period-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .period-tab {
+    padding: 6px 16px; border-radius: 980px; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--glass-border); background: var(--glass); color: var(--text2);
+    cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .period-tab.active { background: rgba(79,163,255,0.15); border-color: rgba(79,163,255,0.4); color: var(--accent); }
+  .day-group { margin-bottom: 20px; }
+  .day-group-header {
+    font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 8px; padding: 0 2px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .day-group-count { background: rgba(255,94,87,0.12); color: var(--red); border: 1px solid rgba(255,94,87,0.2); padding: 1px 8px; border-radius: 980px; font-size: 10px; }
+  .overdue-label { color: var(--red); font-size: 10px; margin-left: 6px; }
 
   .form-group { margin-bottom: 14px; }
   .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--text3); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -247,6 +280,7 @@
   <div class="header-actions">
     <button class="btn btn-secondary btn-sm" onclick="openSyncModal()">☁️ Синхронизация</button>
     <button class="btn btn-secondary btn-sm" onclick="openTemplatesModal()">📋 Шаблоны</button>
+    <button class="btn btn-danger btn-sm" onclick="openIncompleteModal()">⚠️ Долги</button>
     <button class="btn btn-primary btn-sm" onclick="openAddTask()">+ Дело</button>
   </div>
 </div>
@@ -409,6 +443,23 @@
   </div>
 </div>
 
+<!-- Окно невыполненных заданий -->
+<div class="fullscreen-overlay" id="overlayIncomplete">
+  <div class="fullscreen-header">
+    <button class="btn btn-secondary btn-sm" onclick="closeIncompleteModal()">← Назад</button>
+    <div style="font-size: 16px; font-weight: 700; flex:1; text-align:center;">⚠️ Невыполненные задания</div>
+    <div id="incompleteTotalBadge" style="font-size: 12px; color: var(--red); min-width: 40px; text-align:right;"></div>
+  </div>
+  <div class="fullscreen-body">
+    <div class="period-tabs">
+      <button class="period-tab active" onclick="setIncompletePeriod(7, this)">7 дней</button>
+      <button class="period-tab" onclick="setIncompletePeriod(30, this)">30 дней</button>
+      <button class="period-tab" onclick="setIncompletePeriod(0, this)">Всё время</button>
+    </div>
+    <div id="incompleteList"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -558,6 +609,7 @@ function executeMoveOne() {
   saveToStorage();
   closeModal('modalMoveOne');
   showToast('Задание перенесено');
+  if (window._moveOneCallback) { window._moveOneCallback(); window._moveOneCallback = null; }
   movingTaskId = null;
 }
 
@@ -764,7 +816,128 @@ async function loadFromCloud() {
   }
 }
 
-// УТИЛИТЫ
+// ОКНО НЕВЫПОЛНЕННЫХ ЗАДАНИЙ
+let incompletePeriodDays = 7;
+
+function openIncompleteModal() {
+  incompletePeriodDays = 7;
+  document.querySelectorAll('.period-tab').forEach((t,i) => t.classList.toggle('active', i === 0));
+  renderIncomplete();
+  document.getElementById('overlayIncomplete').classList.add('open');
+}
+
+function closeIncompleteModal() {
+  document.getElementById('overlayIncomplete').classList.remove('open');
+}
+
+function setIncompletePeriod(days, btn) {
+  incompletePeriodDays = days;
+  document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderIncomplete();
+}
+
+function renderIncomplete() {
+  const today = new Date().toISOString().split('T')[0];
+  let filtered = todos.filter(t => !t.completed);
+
+  if (incompletePeriodDays > 0) {
+    const from = new Date();
+    from.setDate(from.getDate() - incompletePeriodDays + 1);
+    const fromStr = from.toISOString().split('T')[0];
+    filtered = filtered.filter(t => t.date >= fromStr);
+  }
+
+  // Группируем по дате
+  const groups = {};
+  filtered.forEach(t => {
+    if (!groups[t.date]) groups[t.date] = [];
+    groups[t.date].push(t);
+  });
+
+  const sortedDates = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+  const list = document.getElementById('incompleteList');
+  const badge = document.getElementById('incompleteTotalBadge');
+  badge.textContent = filtered.length ? `${filtered.length} задач` : '';
+
+  if (sortedDates.length === 0) {
+    list.innerHTML = `<div style="text-align:center; padding: 60px 20px; color: var(--text3)">
+      <div style="font-size: 40px; margin-bottom: 12px;">✅</div>
+      <div style="font-size: 15px;">Всё выполнено!</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = sortedDates.map(date => {
+    const isOverdue = date < today;
+    const items = groups[date];
+    const dateLabel = formatDateFull(date);
+    return `
+      <div class="day-group">
+        <div class="day-group-header">
+          <span>${dateLabel}${isOverdue ? '<span class="overdue-label">просрочено</span>' : ''}</span>
+          <span class="day-group-count">${items.length}</span>
+        </div>
+        ${items.map(item => `
+          <div class="task-item" id="inc_${item.id}">
+            <div class="checkbox-wrapper" onclick="incompleteToggle('${item.id}')"><div class="custom-checkbox"></div></div>
+            <div class="task-content">
+              <div class="task-title">${esc(item.name)}</div>
+              <div class="task-meta"><span class="task-tag">${esc(item.category)}</span></div>
+            </div>
+            <div class="task-actions" style="opacity:1; pointer-events:auto;">
+              <button class="btn btn-orange btn-icon btn-sm" title="Перенести" onclick="incompleteMoveOne('${item.id}')">↷</button>
+              <button class="btn btn-danger btn-icon btn-sm" onclick="incompleteDelete('${item.id}')">✕</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }).join('');
+}
+
+function incompleteToggle(id) {
+  const item = todos.find(t => t.id === id);
+  if (!item) return;
+  item.completed = true;
+  saveToStorage();
+  renderIncomplete();
+  showToast('Выполнено!');
+}
+
+function incompleteDelete(id) {
+  if (confirm('Удалить это задание?')) {
+    todos = todos.filter(t => t.id !== id);
+    saveToStorage();
+    renderIncomplete();
+    showToast('Задание удалено');
+  }
+}
+
+function incompleteMoveOne(id) {
+  // Переиспользуем существующий модал переноса
+  const item = todos.find(t => t.id === id);
+  if (!item) return;
+  movingTaskId = id;
+  document.getElementById('moveOneTaskName').textContent = '«' + item.name + '»';
+  const tomorrow = new Date(item.date);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  document.getElementById('moveOneTargetDate').value = tomorrow.toISOString().split('T')[0];
+  // После переноса — обновить и этот экран тоже
+  window._moveOneCallback = () => renderIncomplete();
+  openModal('modalMoveOne');
+}
+
+function formatDateFull(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-');
+  const months = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  const days = ['вс','пн','вт','ср','чт','пт','сб'];
+  const dt = new Date(+y, +m-1, +d);
+  return `${d} ${months[+m-1]} ${y} (${days[dt.getDay()]})`;
+}
+
+
 function filterTasks() { render(); }
 function setFilterAll() { document.getElementById('filterDate').value = ''; render(); }
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
