@@ -245,8 +245,30 @@
   }
   .form-input:focus, .form-select:focus { border-color: rgba(79,163,255,0.5); }
   .form-select option { background: #1a1a2e; }
+
+  /* Поле ввода задания — многострочное */
+  #taskName {
+    min-height: 80px; resize: vertical;
+    display: block; line-height: 1.5;
+  }
+
   .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
   .modal-actions .btn { flex: 1; }
+
+  /* АДАПТИВ — мобилка */
+  @media (max-width: 600px) {
+    .header { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
+    .header-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .header-actions .btn { font-size: 11px; padding: 7px 8px; }
+    .container { padding: 14px 12px 80px; }
+    .filter-bar { padding: 8px 10px; gap: 8px; }
+    .stats-row { gap: 6px; }
+    .stat-card { padding: 10px 8px; }
+    .stat-val { font-size: 18px; }
+    .task-item { padding: 12px 10px; gap: 8px; }
+    .task-title { font-size: 13px; }
+    .btn-sm { font-size: 11px; padding: 5px 9px; }
+  }
 
   .toast {
     position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(16px);
@@ -265,6 +287,122 @@
   .checkbox-row:hover { background: rgba(255,255,255,0.06); }
   .checkbox-row .custom-checkbox { width: 22px; height: 22px; }
 
+  /* ===== МОДУЛЬ УСЛУГИ ===== */
+  .services-module {
+    position: fixed; inset: 0; z-index: 600;
+    background: var(--bg1); display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none; transition: opacity 0.22s;
+  }
+  .services-module.open { opacity: 1; pointer-events: all; }
+  .svc-header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(10,10,20,0.85); backdrop-filter: blur(24px);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .svc-header-icon {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    background: linear-gradient(135deg, rgba(167,139,250,0.6), rgba(79,163,255,0.5));
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .svc-title { font-size: 16px; font-weight: 700; flex:1; }
+  .svc-actions { display: flex; gap: 6px; margin-left: auto; }
+  .svc-breadcrumb {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 16px; font-size: 12px; color: var(--text3);
+    border-bottom: 1px solid var(--glass-border);
+    background: rgba(10,10,20,0.5);
+  }
+  .svc-bc-item { cursor: pointer; transition: color 0.15s; }
+  .svc-bc-item:hover { color: var(--text); }
+  .svc-bc-item.active { color: var(--text2); cursor: default; }
+  .svc-body { flex: 1; overflow-y: auto; padding: 16px; max-width: 650px; width: 100%; margin: 0 auto; }
+
+  .svc-card {
+    background: var(--glass); border: 1px solid var(--glass-border);
+    border-radius: var(--radius2); padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: all 0.18s; margin-bottom: 8px;
+    animation: slideIn 0.2s ease both;
+  }
+  .svc-card:hover { border-color: var(--glass-border2); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+  .svc-card.locked { opacity: 0.65; }
+  .svc-card-icon {
+    width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+    background: linear-gradient(135deg, rgba(167,139,250,0.15), rgba(79,163,255,0.1));
+    border: 1px solid rgba(167,139,250,0.2);
+  }
+  .svc-card-info { flex: 1; min-width: 0; }
+  .svc-card-name { font-size: 14px; font-weight: 600; }
+  .svc-card-meta { font-size: 11px; color: var(--text3); margin-top: 3px; display: flex; gap: 8px; align-items: center; }
+  .svc-status { font-size: 10px; padding: 2px 8px; border-radius: 980px; font-weight: 600; text-transform: uppercase; }
+  .svc-status-open { background: rgba(52,216,92,0.1); color: var(--green); border: 1px solid rgba(52,216,92,0.2); }
+  .svc-status-closed { background: rgba(255,255,255,0.05); color: var(--text3); border: 1px solid var(--glass-border); }
+  .svc-card-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+  .svc-card:hover .svc-card-actions { opacity: 1; }
+  @media (hover: none) { .svc-card-actions { opacity: 1; } }
+
+  .svc-summary {
+    background: var(--glass); border: 1px solid var(--glass-border);
+    border-radius: var(--radius2); padding: 12px 16px;
+    display: flex; gap: 16px; align-items: center; margin-bottom: 16px;
+  }
+  .svc-sum-item { text-align: center; }
+  .svc-sum-val { font-size: 18px; font-weight: 700; }
+  .svc-sum-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+  .svc-sum-divider { width: 1px; height: 28px; background: var(--glass-border); }
+  .svc-sum-total { margin-left: auto; text-align: right; }
+  .svc-sum-total .svc-sum-val { color: var(--orange); }
+
+  .svc-service-item {
+    background: var(--glass); border: 1px solid var(--glass-border);
+    border-radius: var(--radius2); padding: 13px 14px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px; transition: all 0.18s; animation: slideIn 0.2s ease both;
+  }
+  .svc-service-item:hover { border-color: var(--glass-border2); }
+  .svc-service-item.done { opacity: 0.55; }
+  .svc-service-item.done .svc-svc-name { text-decoration: line-through; color: var(--text3); }
+  .svc-svc-info { flex: 1; min-width: 0; }
+  .svc-svc-name { font-size: 13px; font-weight: 500; }
+  .svc-svc-note { font-size: 11px; color: var(--text3); margin-top: 2px; font-style: italic; }
+  .svc-svc-amt { font-size: 13px; font-weight: 600; color: var(--orange); white-space: nowrap; }
+  .svc-svc-amt.empty { color: var(--text3); font-size: 11px; font-weight: 400; }
+  .svc-svc-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+  .svc-service-item:hover .svc-svc-actions { opacity: 1; }
+  @media (hover: none) { .svc-svc-actions { opacity: 1; } }
+
+  .svc-locked-banner {
+    background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
+    border-radius: var(--radius3); padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    font-size: 12px; color: var(--text3); flex-wrap: wrap;
+  }
+  .svc-section-title {
+    font-size: 11px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 1px;
+    margin: 16px 0 8px 2px;
+  }
+  .svc-empty { text-align: center; padding: 50px 20px; color: var(--text3); }
+  .svc-empty-icon { font-size: 38px; margin-bottom: 10px; }
+
+  .svc-month-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-bottom: 4px; }
+  .svc-month-btn {
+    padding: 7px 4px; border-radius: var(--radius3); border: 1px solid var(--glass-border);
+    background: var(--glass); color: var(--text2); font-size: 12px; font-family: inherit;
+    cursor: pointer; transition: all 0.15s; text-align: center;
+  }
+  .svc-month-btn.active { background: rgba(167,139,250,0.15); border-color: rgba(167,139,250,0.4); color: #a78bfa; }
+  .svc-copy-option {
+    display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+    background: var(--glass); border: 1px solid var(--glass-border); border-radius: var(--radius3);
+    cursor: pointer; transition: all 0.15s; margin-bottom: 8px;
+  }
+  .svc-copy-option:hover { border-color: var(--glass-border2); }
+
   @keyframes slideIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
 </style>
 </head>
@@ -281,6 +419,7 @@
     <button class="btn btn-secondary btn-sm" onclick="openSyncModal()">☁️ Синхронизация</button>
     <button class="btn btn-secondary btn-sm" onclick="openTemplatesModal()">📋 Шаблоны</button>
     <button class="btn btn-danger btn-sm" onclick="openIncompleteModal()">⚠️ Долги</button>
+    <button class="btn btn-secondary btn-sm" onclick="openServicesModule()">🧾 Услуги</button>
     <button class="btn btn-primary btn-sm" onclick="openAddTask()">+ Дело</button>
   </div>
 </div>
@@ -318,7 +457,7 @@
     <div class="modal-title" id="modalTaskTitle">Новое задание</div>
     <div class="form-group">
       <div class="form-label">Что нужно сделать?</div>
-      <input class="form-input" id="taskName" placeholder="Например: Проверить приходы по 1С">
+      <textarea class="form-input" id="taskName" placeholder="Например: Проверить приходы по 1С" rows="3"></textarea>
     </div>
     <div class="form-group">
       <div class="form-label">Дата</div>
@@ -457,6 +596,122 @@
       <button class="period-tab" onclick="setIncompletePeriod(0, this)">Всё время</button>
     </div>
     <div id="incompleteList"></div>
+  </div>
+</div>
+
+<!-- ===== МОДУЛЬ УСЛУГИ ===== -->
+<div class="services-module" id="servicesModule">
+  <div class="svc-header">
+    <div class="svc-header-icon">🧾</div>
+    <div class="svc-title" id="svcHeaderTitle">Услуги</div>
+    <div class="svc-actions" id="svcHeaderActions"></div>
+    <button class="btn btn-secondary btn-sm" onclick="closeServicesModule()" style="margin-left:6px;">✕ Закрыть</button>
+  </div>
+  <div class="svc-breadcrumb" id="svcBreadcrumb"></div>
+  <div class="svc-body" id="svcBody"></div>
+</div>
+
+<!-- Модал: новый/копировать месяц -->
+<div class="modal-overlay" id="svcModalMonth" style="z-index:700">
+  <div class="modal">
+    <div class="modal-title" id="svcModalMonthTitle">Новый месяц</div>
+    <div class="form-group">
+      <div class="form-label">Месяц</div>
+      <div class="svc-month-grid" id="svcMonthGrid"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Год</div>
+      <input class="form-input" id="svcMonthYear" type="number" min="2020" max="2099">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeSvcModal('svcModalMonth')">Отмена</button>
+      <button class="btn btn-primary" onclick="svcSaveMonth()">Создать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модал: копировать месяц -->
+<div class="modal-overlay" id="svcModalCopyMonth" style="z-index:700">
+  <div class="modal">
+    <div class="modal-title">Скопировать месяц</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Копируем: <span id="svcCopyFromName" style="color:var(--text);font-weight:600;"></span></p>
+    <label class="svc-copy-option"><input type="radio" name="svcCopyMode" value="keep" checked style="margin-top:2px;accent-color:#a78bfa"><div><div style="font-size:13px;font-weight:500;">С суммами</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">Суммы прошлого месяца сохранятся</div></div></label>
+    <label class="svc-copy-option"><input type="radio" name="svcCopyMode" value="reset" style="margin-top:2px;accent-color:#a78bfa"><div><div style="font-size:13px;font-weight:500;">Без сумм</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">Суммы будут пустыми</div></div></label>
+    <div class="form-group" style="margin-top:14px;">
+      <div class="form-label">Новый месяц</div>
+      <div class="svc-month-grid" id="svcCopyMonthGrid"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Год</div>
+      <input class="form-input" id="svcCopyMonthYear" type="number" min="2020" max="2099">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeSvcModal('svcModalCopyMonth')">Отмена</button>
+      <button class="btn btn-primary" onclick="svcExecuteCopyMonth()">Скопировать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модал: объект -->
+<div class="modal-overlay" id="svcModalObject" style="z-index:700">
+  <div class="modal">
+    <div class="modal-title" id="svcModalObjectTitle">Новый объект</div>
+    <div class="form-group">
+      <div class="form-label">Название</div>
+      <input class="form-input" id="svcObjectName" placeholder="Например: Офис на Соборной">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Иконка (эмодзи)</div>
+      <input class="form-input" id="svcObjectIcon" placeholder="🏢" maxlength="2">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeSvcModal('svcModalObject')">Отмена</button>
+      <button class="btn btn-primary" onclick="svcSaveObject()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модал: услуга -->
+<div class="modal-overlay" id="svcModalService" style="z-index:700">
+  <div class="modal">
+    <div class="modal-title" id="svcModalServiceTitle">Новая услуга</div>
+    <div class="form-group">
+      <div class="form-label">Название</div>
+      <input class="form-input" id="svcServiceName" placeholder="Например: Аренда помещения">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Сумма (грн)</div>
+      <input class="form-input" id="svcServiceAmount" type="number" placeholder="0.00" step="0.01">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Заметка</div>
+      <textarea class="form-input" id="svcServiceNote" placeholder="Необязательно..." rows="2" style="resize:vertical;line-height:1.5"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeSvcModal('svcModalService')">Отмена</button>
+      <button class="btn btn-primary" onclick="svcSaveService()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модал: копировать услугу -->
+<div class="modal-overlay" id="svcModalCopyService" style="z-index:700">
+  <div class="modal">
+    <div class="modal-title">Копировать услугу</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:4px;">Услуга: <span id="svcCopyServiceName" style="color:var(--text);font-weight:600;"></span></p>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:14px;">Будет скопирована как невыполненная</p>
+    <div class="form-group">
+      <div class="form-label">В какой месяц</div>
+      <select class="form-select" id="svcCopyServiceMonth"></select>
+    </div>
+    <div class="form-group">
+      <div class="form-label">В какой объект</div>
+      <select class="form-select" id="svcCopyServiceObject"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeSvcModal('svcModalCopyService')">Отмена</button>
+      <button class="btn btn-primary" onclick="svcExecuteCopyService()">Скопировать</button>
+    </div>
   </div>
 </div>
 
@@ -946,6 +1201,370 @@ document.querySelectorAll('.modal-overlay').forEach(el => { el.addEventListener(
 function esc(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
 function formatDate(dateStr) { if (!dateStr) return ''; const [y, m, d] = dateStr.split('-'); return `${d}.${m}.${y}`; }
+
+// ==========================================
+// МОДУЛЬ УСЛУГИ
+// ==========================================
+let svcData = JSON.parse(localStorage.getItem('services_data') || 'null') || { months: [] };
+let svcMonthId = null;
+let svcObjectId = null;
+let svcEditMonthId = null;
+let svcEditObjectId = null;
+let svcEditServiceId = null;
+let svcCopyingMonthId = null;
+let svcCopyingServiceId = null;
+let svcSelectedNewMonth = null;
+let svcSelectedCopyMonth = null;
+
+const SVC_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const SVC_MONTHS_S = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+
+function svcSave() {
+  localStorage.setItem('services_data', JSON.stringify(svcData));
+}
+function svcUid() { return '_s' + Math.random().toString(36).substr(2,9); }
+function svcFmt(v) { return (parseFloat(v)||0).toLocaleString('ru',{minimumFractionDigits:0,maximumFractionDigits:2}); }
+
+function openServicesModule() {
+  svcMonthId = null; svcObjectId = null;
+  document.getElementById('servicesModule').classList.add('open');
+  svcRender();
+}
+function closeServicesModule() {
+  document.getElementById('servicesModule').classList.remove('open');
+}
+function openSvcModal(id) { document.getElementById(id).classList.add('open'); }
+function closeSvcModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function svcNavigate(monthId, objectId) {
+  svcMonthId = monthId || null;
+  svcObjectId = objectId || null;
+  svcRender();
+}
+
+function svcRender() {
+  svcRenderBreadcrumb();
+  svcRenderHeader();
+  if (!svcMonthId) svcRenderMonths();
+  else if (!svcObjectId) svcRenderObjects();
+  else svcRenderServices();
+}
+
+function svcRenderBreadcrumb() {
+  const bc = document.getElementById('svcBreadcrumb');
+  const month = svcMonthId ? svcData.months.find(m => m.id === svcMonthId) : null;
+  const obj = (month && svcObjectId) ? month.objects.find(o => o.id === svcObjectId) : null;
+  let html = `<span class="svc-bc-item" onclick="svcNavigate()">Все месяцы</span>`;
+  if (month) {
+    html += `<span style="margin:0 4px">›</span>`;
+    html += obj
+      ? `<span class="svc-bc-item" onclick="svcNavigate('${month.id}')">${SVC_MONTHS[month.month-1]} ${month.year}</span>`
+      : `<span class="svc-bc-item active">${SVC_MONTHS[month.month-1]} ${month.year}</span>`;
+  }
+  if (obj) {
+    html += `<span style="margin:0 4px">›</span><span class="svc-bc-item active">${obj.icon||'🏢'} ${esc(obj.name)}</span>`;
+  }
+  bc.innerHTML = html;
+}
+
+function svcRenderHeader() {
+  const title = document.getElementById('svcHeaderTitle');
+  const actions = document.getElementById('svcHeaderActions');
+  const month = svcMonthId ? svcData.months.find(m => m.id === svcMonthId) : null;
+  const obj = (month && svcObjectId) ? month.objects.find(o => o.id === svcObjectId) : null;
+  if (!svcMonthId) {
+    title.textContent = 'Услуги';
+    actions.innerHTML = `<button class="btn btn-primary btn-sm" onclick="svcOpenAddMonth()">+ Месяц</button>`;
+  } else if (!svcObjectId) {
+    title.textContent = `${SVC_MONTHS[month.month-1]} ${month.year}`;
+    if (month.locked) {
+      actions.innerHTML = `<button class="btn btn-orange btn-sm" onclick="svcUnlockMonth('${month.id}')">🔓 Разблокировать</button><button class="btn btn-secondary btn-sm" onclick="svcOpenCopyMonth('${month.id}')">⎘ Копировать</button>`;
+    } else {
+      actions.innerHTML = `<button class="btn btn-green btn-sm" onclick="svcCloseMonth('${month.id}')">✓ Закрыть</button><button class="btn btn-secondary btn-sm" onclick="svcOpenCopyMonth('${month.id}')">⎘ Копировать</button><button class="btn btn-primary btn-sm" onclick="svcOpenAddObject()">+ Объект</button>`;
+    }
+  } else {
+    title.textContent = `${obj.icon||'🏢'} ${obj.name}`;
+    actions.innerHTML = month.locked ? `<span style="font-size:11px;color:var(--text3)">🔒 Архив</span>` : `<button class="btn btn-primary btn-sm" onclick="svcOpenAddService()">+ Услуга</button>`;
+  }
+}
+
+function svcRenderMonths() {
+  const body = document.getElementById('svcBody');
+  const months = [...svcData.months].sort((a,b) => b.year-a.year||b.month-a.month);
+  if (!months.length) {
+    body.innerHTML = `<div class="svc-empty"><div class="svc-empty-icon">🗓️</div><p style="margin-bottom:14px">Нет месяцев. Создайте первый!</p><button class="btn btn-primary" onclick="svcOpenAddMonth()">+ Новый месяц</button></div>`;
+    return;
+  }
+  body.innerHTML = months.map(m => {
+    const total = m.objects.reduce((s,o)=>s+o.services.length,0);
+    const done = m.objects.reduce((s,o)=>s+o.services.filter(s2=>s2.done).length,0);
+    const amt = m.objects.reduce((s,o)=>s+o.services.reduce((s2,sv)=>s2+(parseFloat(sv.amount)||0),0),0);
+    return `<div class="svc-card ${m.locked?'locked':''}" onclick="svcNavigate('${m.id}')">
+      <div class="svc-card-icon">${m.locked?'🔒':'🗓️'}</div>
+      <div class="svc-card-info">
+        <div class="svc-card-name">${SVC_MONTHS[m.month-1]} ${m.year}</div>
+        <div class="svc-card-meta">
+          <span class="svc-status ${m.locked?'svc-status-closed':'svc-status-open'}">${m.locked?'Архив':'В работе'}</span>
+          <span>${done}/${total} проведено</span>
+          ${amt>0?`<span style="color:var(--orange)">${svcFmt(amt)} грн</span>`:''}
+        </div>
+      </div>
+      <div class="svc-card-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-danger btn-icon btn-sm" onclick="svcDeleteMonth('${m.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function svcRenderObjects() {
+  const body = document.getElementById('svcBody');
+  const month = svcData.months.find(m => m.id === svcMonthId);
+  if (!month) return;
+  const total = month.objects.reduce((s,o)=>s+o.services.length,0);
+  const done = month.objects.reduce((s,o)=>s+o.services.filter(s2=>s2.done).length,0);
+  const amt = month.objects.reduce((s,o)=>s+o.services.reduce((s2,sv)=>s2+(parseFloat(sv.amount)||0),0),0);
+  let html = '';
+  if (month.locked) html += `<div class="svc-locked-banner">🔒 Месяц в архиве <button class="btn btn-orange btn-sm" style="margin-left:auto" onclick="svcUnlockMonth('${month.id}')">Разблокировать</button></div>`;
+  html += `<div class="svc-summary"><div class="svc-sum-item"><div class="svc-sum-val">${total}</div><div class="svc-sum-label">Фактур</div></div><div class="svc-sum-divider"></div><div class="svc-sum-item"><div class="svc-sum-val" style="color:var(--green)">${done}</div><div class="svc-sum-label">Проведено</div></div><div class="svc-sum-divider"></div><div class="svc-sum-item"><div class="svc-sum-val">${total-done}</div><div class="svc-sum-label">Осталось</div></div><div class="svc-sum-total"><div class="svc-sum-val">${svcFmt(amt)}</div><div class="svc-sum-label">Грн всего</div></div></div>`;
+  if (!month.objects.length) {
+    html += `<div class="svc-empty"><div class="svc-empty-icon">🏢</div><p style="margin-bottom:14px">Нет объектов</p>${!month.locked?`<button class="btn btn-primary" onclick="svcOpenAddObject()">+ Объект</button>`:''}</div>`;
+  } else {
+    html += month.objects.map(o => {
+      const ot = o.services.length, od = o.services.filter(s=>s.done).length;
+      const oa = o.services.reduce((s,sv)=>s+(parseFloat(sv.amount)||0),0);
+      return `<div class="svc-card" onclick="svcNavigate('${month.id}','${o.id}')">
+        <div class="svc-card-icon" style="background:var(--glass2);border-color:var(--glass-border)">${o.icon||'🏢'}</div>
+        <div class="svc-card-info">
+          <div class="svc-card-name">${esc(o.name)}</div>
+          <div class="svc-card-meta"><span>${od}/${ot} проведено</span>${oa>0?`<span style="color:var(--orange)">${svcFmt(oa)} грн</span>`:''}</div>
+        </div>
+        <div class="svc-card-actions" onclick="event.stopPropagation()">
+          ${!month.locked?`<button class="btn btn-secondary btn-icon btn-sm" onclick="svcOpenEditObject('${o.id}')">✏️</button><button class="btn btn-danger btn-icon btn-sm" onclick="svcDeleteObject('${o.id}')">✕</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  body.innerHTML = html;
+}
+
+function svcRenderServices() {
+  const body = document.getElementById('svcBody');
+  const month = svcData.months.find(m => m.id === svcMonthId);
+  const obj = month ? month.objects.find(o => o.id === svcObjectId) : null;
+  if (!obj) return;
+  const svcs = obj.services;
+  const total = svcs.length, done = svcs.filter(s=>s.done).length;
+  const amt = svcs.reduce((s,sv)=>s+(parseFloat(sv.amount)||0),0);
+  let html = '';
+  if (month.locked) html += `<div class="svc-locked-banner">🔒 Архивный месяц — только просмотр.</div>`;
+  html += `<div class="svc-summary"><div class="svc-sum-item"><div class="svc-sum-val">${total}</div><div class="svc-sum-label">Фактур</div></div><div class="svc-sum-divider"></div><div class="svc-sum-item"><div class="svc-sum-val" style="color:var(--green)">${done}</div><div class="svc-sum-label">Проведено</div></div><div class="svc-sum-divider"></div><div class="svc-sum-item"><div class="svc-sum-val">${total-done}</div><div class="svc-sum-label">Осталось</div></div><div class="svc-sum-total"><div class="svc-sum-val">${svcFmt(amt)}</div><div class="svc-sum-label">Грн всего</div></div></div>`;
+  if (!svcs.length) {
+    html += `<div class="svc-empty"><div class="svc-empty-icon">🧾</div><p style="margin-bottom:14px">Нет услуг</p>${!month.locked?`<button class="btn btn-primary" onclick="svcOpenAddService()">+ Услуга</button>`:''}</div>`;
+  } else {
+    const pending = svcs.filter(s=>!s.done), completed = svcs.filter(s=>s.done);
+    if (pending.length) {
+      html += `<div class="svc-section-title">Ожидают проводки</div>`;
+      html += pending.map(sv => svcServiceHTML(sv, month.locked)).join('');
+    }
+    if (completed.length) {
+      html += `<div class="svc-section-title">Проведено</div>`;
+      html += completed.map(sv => svcServiceHTML(sv, month.locked)).join('');
+    }
+  }
+  body.innerHTML = html;
+}
+
+function svcServiceHTML(sv, locked) {
+  return `<div class="svc-service-item ${sv.done?'done':''}">
+    <div class="checkbox-wrapper" ${!locked?`onclick="svcToggle('${sv.id}')"`:''}><div class="custom-checkbox" style="${sv.done?'background:var(--green);border-color:var(--green)':''}"></div></div>
+    <div class="svc-svc-info">
+      <div class="svc-svc-name">${esc(sv.name)}</div>
+      ${sv.note?`<div class="svc-svc-note">${esc(sv.note)}</div>`:''}
+    </div>
+    <div class="${sv.amount?'svc-svc-amt':'svc-svc-amt empty'}">${sv.amount?svcFmt(sv.amount)+' грн':'— грн'}</div>
+    <div class="svc-svc-actions">
+      ${!locked?`<button class="btn btn-secondary btn-icon btn-sm" onclick="svcOpenEditService('${sv.id}')">✏️</button>`:''}
+      <button class="btn btn-orange btn-icon btn-sm" onclick="svcOpenCopyService('${sv.id}')">⎘</button>
+      ${!locked?`<button class="btn btn-danger btn-icon btn-sm" onclick="svcDeleteService('${sv.id}')">✕</button>`:''}
+    </div>
+  </div>`;
+}
+
+// Месяцы
+function svcBuildMonthGrid(gridId, selectedVal) {
+  document.getElementById(gridId).innerHTML = SVC_MONTHS_S.map((n,i)=>
+    `<button class="svc-month-btn ${selectedVal===i+1?'active':''}" onclick="svcSelectMonth('${gridId}',${i+1},this)">${n}</button>`
+  ).join('');
+}
+function svcSelectMonth(gridId, num, btn) {
+  document.querySelectorAll(`#${gridId} .svc-month-btn`).forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if (gridId==='svcMonthGrid') svcSelectedNewMonth=num;
+  else svcSelectedCopyMonth=num;
+}
+function svcOpenAddMonth() {
+  svcEditMonthId=null;
+  const now=new Date(); svcSelectedNewMonth=now.getMonth()+1;
+  document.getElementById('svcMonthYear').value=now.getFullYear();
+  svcBuildMonthGrid('svcMonthGrid',svcSelectedNewMonth);
+  document.getElementById('svcModalMonthTitle').textContent='Новый месяц';
+  openSvcModal('svcModalMonth');
+}
+function svcSaveMonth() {
+  const year=parseInt(document.getElementById('svcMonthYear').value);
+  if (!svcSelectedNewMonth||!year){showToast('Выберите месяц и год');return;}
+  if (svcData.months.find(m=>m.month===svcSelectedNewMonth&&m.year===year)){showToast('Такой месяц уже есть');return;}
+  svcData.months.push({id:svcUid(),month:svcSelectedNewMonth,year,locked:false,objects:[]});
+  svcSave(); closeSvcModal('svcModalMonth'); svcRender(); showToast('Месяц создан');
+}
+function svcCloseMonth(id) {
+  if (!confirm('Закрыть месяц и отправить в архив?')) return;
+  const m=svcData.months.find(m=>m.id===id); if(m){m.locked=true; svcSave(); svcRender(); showToast('Месяц закрыт');}
+}
+function svcUnlockMonth(id) {
+  if (!confirm('Разблокировать месяц?')) return;
+  const m=svcData.months.find(m=>m.id===id); if(m){m.locked=false; svcSave(); svcRender(); showToast('Разблокировано');}
+}
+function svcDeleteMonth(id) {
+  if (!confirm('Удалить этот месяц и все данные в нём?')) return;
+  svcData.months=svcData.months.filter(m=>m.id!==id); svcSave(); svcNavigate(); showToast('Месяц удалён');
+}
+function svcOpenCopyMonth(id) {
+  svcCopyingMonthId=id;
+  const m=svcData.months.find(m=>m.id===id);
+  document.getElementById('svcCopyFromName').textContent=`${SVC_MONTHS[m.month-1]} ${m.year}`;
+  const next=m.month===12?1:m.month+1, nextY=m.month===12?m.year+1:m.year;
+  svcSelectedCopyMonth=next;
+  document.getElementById('svcCopyMonthYear').value=nextY;
+  svcBuildMonthGrid('svcCopyMonthGrid',next);
+  document.querySelector('input[name="svcCopyMode"][value="keep"]').checked=true;
+  openSvcModal('svcModalCopyMonth');
+}
+function svcExecuteCopyMonth() {
+  const year=parseInt(document.getElementById('svcCopyMonthYear').value);
+  if (!svcSelectedCopyMonth||!year){showToast('Выберите месяц и год');return;}
+  if (svcData.months.find(m=>m.month===svcSelectedCopyMonth&&m.year===year)){showToast('Такой месяц уже есть');return;}
+  const src=svcData.months.find(m=>m.id===svcCopyingMonthId);
+  const keep=document.querySelector('input[name="svcCopyMode"]:checked').value==='keep';
+  svcData.months.push({id:svcUid(),month:svcSelectedCopyMonth,year,locked:false,
+    objects:src.objects.map(o=>({id:svcUid(),name:o.name,icon:o.icon,
+      services:o.services.map(sv=>({id:svcUid(),name:sv.name,note:sv.note||'',amount:keep?sv.amount:'',done:false}))}))});
+  svcSave(); closeSvcModal('svcModalCopyMonth'); svcNavigate(); showToast('Месяць скопійовано');
+}
+
+// Объекты
+function svcOpenAddObject() {
+  svcEditObjectId=null;
+  document.getElementById('svcObjectName').value='';
+  document.getElementById('svcObjectIcon').value='🏢';
+  document.getElementById('svcModalObjectTitle').textContent='Новый объект';
+  openSvcModal('svcModalObject');
+}
+function svcOpenEditObject(id) {
+  const m=svcData.months.find(m=>m.id===svcMonthId);
+  const o=m.objects.find(o=>o.id===id);
+  svcEditObjectId=id;
+  document.getElementById('svcObjectName').value=o.name;
+  document.getElementById('svcObjectIcon').value=o.icon||'🏢';
+  document.getElementById('svcModalObjectTitle').textContent='Редактировать объект';
+  openSvcModal('svcModalObject');
+}
+function svcSaveObject() {
+  const name=document.getElementById('svcObjectName').value.trim();
+  const icon=document.getElementById('svcObjectIcon').value.trim()||'🏢';
+  if (!name){showToast('Введите название');return;}
+  const m=svcData.months.find(m=>m.id===svcMonthId);
+  if (svcEditObjectId){const o=m.objects.find(o=>o.id===svcEditObjectId);o.name=name;o.icon=icon;svcEditObjectId=null;}
+  else m.objects.push({id:svcUid(),name,icon,services:[]});
+  svcSave(); closeSvcModal('svcModalObject'); svcRender(); showToast('Объект сохранён');
+}
+function svcDeleteObject(id) {
+  if (!confirm('Удалить объект и все его услуги?')) return;
+  const m=svcData.months.find(m=>m.id===svcMonthId);
+  m.objects=m.objects.filter(o=>o.id!==id); svcSave(); svcRender(); showToast('Объект удалён');
+}
+
+// Услуги
+function svcOpenAddService() {
+  svcEditServiceId=null;
+  document.getElementById('svcServiceName').value='';
+  document.getElementById('svcServiceAmount').value='';
+  document.getElementById('svcServiceNote').value='';
+  document.getElementById('svcModalServiceTitle').textContent='Новая услуга';
+  openSvcModal('svcModalService');
+}
+function svcOpenEditService(id) {
+  const m=svcData.months.find(m=>m.id===svcMonthId);
+  const o=m.objects.find(o=>o.id===svcObjectId);
+  const sv=o.services.find(s=>s.id===id);
+  svcEditServiceId=id;
+  document.getElementById('svcServiceName').value=sv.name;
+  document.getElementById('svcServiceAmount').value=sv.amount||'';
+  document.getElementById('svcServiceNote').value=sv.note||'';
+  document.getElementById('svcModalServiceTitle').textContent='Редактировать услугу';
+  openSvcModal('svcModalService');
+}
+function svcSaveService() {
+  const name=document.getElementById('svcServiceName').value.trim();
+  const amount=document.getElementById('svcServiceAmount').value.trim();
+  const note=document.getElementById('svcServiceNote').value.trim();
+  if (!name){showToast('Введите название');return;}
+  const m=svcData.months.find(m=>m.id===svcMonthId);
+  const o=m.objects.find(o=>o.id===svcObjectId);
+  if (svcEditServiceId){const sv=o.services.find(s=>s.id===svcEditServiceId);sv.name=name;sv.amount=amount;sv.note=note;svcEditServiceId=null;}
+  else o.services.push({id:svcUid(),name,amount,note,done:false});
+  svcSave(); closeSvcModal('svcModalService'); svcRender(); showToast('Услуга сохранена');
+}
+function svcToggle(id) {
+  const m=svcData.months.find(m=>m.id===svcMonthId);
+  const o=m.objects.find(o=>o.id===svcObjectId);
+  const sv=o.services.find(s=>s.id===id);
+  sv.done=!sv.done; svcSave(); svcRender();
+}
+function svcDeleteService(id) {
+  if (!confirm('Удалить услугу?')) return;
+  const m=svcData.months.find(m=>m.id===svcMonthId);
+  const o=m.objects.find(o=>o.id===svcObjectId);
+  o.services=o.services.filter(s=>s.id!==id); svcSave(); svcRender(); showToast('Услуга удалена');
+}
+function svcOpenCopyService(id) {
+  const m=svcData.months.find(m=>m.id===svcMonthId);
+  const o=m.objects.find(o=>o.id===svcObjectId);
+  const sv=o.services.find(s=>s.id===id);
+  svcCopyingServiceId=id;
+  document.getElementById('svcCopyServiceName').textContent=sv.name;
+  const monthSel=document.getElementById('svcCopyServiceMonth');
+  const sorted=[...svcData.months].sort((a,b)=>b.year-a.year||b.month-a.month);
+  monthSel.innerHTML=sorted.map(m=>`<option value="${m.id}">${SVC_MONTHS[m.month-1]} ${m.year}${m.locked?' 🔒':''}</option>`).join('');
+  monthSel.onchange=svcUpdateCopyObjects;
+  svcUpdateCopyObjects();
+  openSvcModal('svcModalCopyService');
+}
+function svcUpdateCopyObjects() {
+  const monthId=document.getElementById('svcCopyServiceMonth').value;
+  const m=svcData.months.find(m=>m.id===monthId);
+  const objSel=document.getElementById('svcCopyServiceObject');
+  objSel.innerHTML=m&&m.objects.length
+    ? m.objects.map(o=>`<option value="${o.id}">${o.icon||'🏢'} ${esc(o.name)}</option>`).join('')
+    : '<option value="">— нет объектов —</option>';
+}
+function svcExecuteCopyService() {
+  const monthId=document.getElementById('svcCopyServiceMonth').value;
+  const objId=document.getElementById('svcCopyServiceObject').value;
+  if (!monthId||!objId){showToast('Выберите месяц и объект');return;}
+  const srcM=svcData.months.find(m=>m.id===svcMonthId);
+  const srcO=srcM.objects.find(o=>o.id===svcObjectId);
+  const sv=srcO.services.find(s=>s.id===svcCopyingServiceId);
+  const destM=svcData.months.find(m=>m.id===monthId);
+  const destO=destM.objects.find(o=>o.id===objId);
+  destO.services.push({id:svcUid(),name:sv.name,amount:sv.amount,note:sv.note,done:false});
+  svcSave(); closeSvcModal('svcModalCopyService'); showToast('Услуга скопирована');
+}
+
+// Клик по фону закрывает svc-модалы
+document.querySelectorAll('[id^="svcModal"]').forEach(el=>{
+  el.addEventListener('click',e=>{if(e.target===el)closeSvcModal(el.id);});
+});
 
 init();
 </script>
