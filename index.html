@@ -1020,12 +1020,12 @@ async function saveToCloud() {
     const response = await fetch(JSONBIN_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ todos, templates, savedAt: new Date().toISOString() })
+      body: JSON.stringify({ todos, templates, svcData, savedAt: new Date().toISOString() })
     });
 
     if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
 
-    setSyncStatus(`✓ Сохранено! ${todos.length} задач(и), ${templates.length} шаблон(ов) — ${new Date().toLocaleTimeString('ru')}`, 'green');
+    setSyncStatus(`✓ Сохранено! ${todos.length} задач(и), ${templates.length} шаблон(ов), ${svcData.months.length} мес. услуг — ${new Date().toLocaleTimeString('ru')}`, 'green');
     showToast('Данные сохранены в облако!');
   } catch (e) {
     setSyncStatus('✗ Ошибка при сохранении. Проверьте интернет.', 'red');
@@ -1050,15 +1050,19 @@ async function loadFromCloud() {
     const data = await response.json();
     const loadedTodos = data.record?.todos;
     const loadedTemplates = data.record?.templates || [];
+    const loadedSvcData = data.record?.svcData || { months: [] };
 
     if (!Array.isArray(loadedTodos)) throw new Error('Неверный формат данных');
 
     const savedAt = data.record?.savedAt ? new Date(data.record.savedAt).toLocaleString('ru') : '—';
-    if (confirm(`Загрузить ${loadedTodos.length} задач(и) и ${loadedTemplates.length} шаблон(ов) из облака?\nСохранено: ${savedAt}\n\nТекущие данные будут заменены.`)) {
+    const svcMonths = loadedSvcData.months?.length || 0;
+    if (confirm(`Загрузить из облака?\n— ${loadedTodos.length} задач(и)\n— ${loadedTemplates.length} шаблон(ов)\n— ${svcMonths} мес. услуг\nСохранено: ${savedAt}\n\nТекущие данные будут заменены.`)) {
       todos = loadedTodos;
       templates = loadedTemplates;
-      saveToStorage(); // сохраняет в localStorage автоматически
-      setSyncStatus(`✓ Загружено ${loadedTodos.length} задач(и), ${loadedTemplates.length} шаблон(ов). Сохранено: ${savedAt}`, 'green');
+      svcData = loadedSvcData;
+      saveToStorage();
+      localStorage.setItem('services_data', JSON.stringify(svcData));
+      setSyncStatus(`✓ Загружено: ${loadedTodos.length} задач(и), ${loadedTemplates.length} шаблон(ов), ${svcMonths} мес. услуг. Сохранено: ${savedAt}`, 'green');
       showToast('Данные загружены из облака!');
     } else {
       setSyncStatus('Загрузка отменена.', 'info');
