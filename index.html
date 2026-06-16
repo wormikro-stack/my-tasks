@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Задачи</title>
+<title>Мои Задачи</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -412,7 +412,7 @@
   <div class="header-left">
     <div class="header-icon">✓</div>
     <div>
-      <div class="header-title">Задания</div>
+      <div class="header-title">Мои Задания</div>
     </div>
   </div>
   <div class="header-actions">
@@ -457,7 +457,7 @@
     <div class="modal-title" id="modalTaskTitle">Новое задание</div>
     <div class="form-group">
       <div class="form-label">Что нужно сделать?</div>
-      <textarea class="form-input" id="taskName" placeholder="Например: Проверить приходы по 1С" rows="3" onkeydown="if(event.ctrlKey&&event.key==='Enter')saveTask()"></textarea>
+      <textarea class="form-input" id="taskName" placeholder="Например: Проверить приходы по 1С" rows="3"></textarea>
     </div>
     <div class="form-group">
       <div class="form-label">Дата</div>
@@ -503,7 +503,7 @@
 </div>
 
 <!-- Перенос одного задания -->
-<div class="modal-overlay" id="modalMoveOne">
+<div class="modal-overlay" id="modalMoveOne" style="z-index:700">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title">↷ Перенести задание</div>
@@ -1014,7 +1014,6 @@ function setSyncStatus(msg, color) {
 async function saveToCloud() {
   const btn = document.getElementById('btnSaveCloud');
   btn.textContent = '⏳ Сохранение...'; btn.disabled = true;
-  setSyncStatus('Отправляю данные...', 'info');
 
   try {
     const response = await fetch(JSONBIN_URL, {
@@ -1025,11 +1024,10 @@ async function saveToCloud() {
 
     if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
 
-    setSyncStatus(`✓ Сохранено! ${todos.length} задач(и), ${templates.length} шаблон(ов), ${svcData.months.length} мес. услуг — ${new Date().toLocaleTimeString('ru')}`, 'green');
-    showToast('Данные сохранены в облако!');
+    closeModal('modalSync');
+    showToast('✓ Данные сохранены в облако!');
   } catch (e) {
-    setSyncStatus('✗ Ошибка при сохранении. Проверьте интернет.', 'red');
-    showToast('Ошибка сохранения');
+    showToast('✗ Ошибка сохранения. Проверьте интернет.');
   } finally {
     btn.textContent = '⬆️ Сохранить данные в облако'; btn.disabled = false;
   }
@@ -1038,7 +1036,6 @@ async function saveToCloud() {
 async function loadFromCloud() {
   const btn = document.getElementById('btnLoadCloud');
   btn.textContent = '⏳ Загрузка...'; btn.disabled = true;
-  setSyncStatus('Загружаю данные...', 'info');
 
   try {
     const response = await fetch(JSONBIN_URL + '/latest', {
@@ -1054,22 +1051,15 @@ async function loadFromCloud() {
 
     if (!Array.isArray(loadedTodos)) throw new Error('Неверный формат данных');
 
-    const savedAt = data.record?.savedAt ? new Date(data.record.savedAt).toLocaleString('ru') : '—';
-    const svcMonths = loadedSvcData.months?.length || 0;
-    if (confirm(`Загрузить из облака?\n— ${loadedTodos.length} задач(и)\n— ${loadedTemplates.length} шаблон(ов)\n— ${svcMonths} мес. услуг\nСохранено: ${savedAt}\n\nТекущие данные будут заменены.`)) {
-      todos = loadedTodos;
-      templates = loadedTemplates;
-      svcData = loadedSvcData;
-      saveToStorage();
-      localStorage.setItem('services_data', JSON.stringify(svcData));
-      setSyncStatus(`✓ Загружено: ${loadedTodos.length} задач(и), ${loadedTemplates.length} шаблон(ов), ${svcMonths} мес. услуг. Сохранено: ${savedAt}`, 'green');
-      showToast('Данные загружены из облака!');
-    } else {
-      setSyncStatus('Загрузка отменена.', 'info');
-    }
+    todos = loadedTodos;
+    templates = loadedTemplates;
+    svcData = loadedSvcData;
+    saveToStorage();
+    localStorage.setItem('services_data', JSON.stringify(svcData));
+    closeModal('modalSync');
+    showToast('✓ Данные загружены из облака!');
   } catch (e) {
-    setSyncStatus('✗ Ошибка загрузки. Проверьте интернет.', 'red');
-    showToast('Ошибка загрузки');
+    showToast('✗ Ошибка загрузки. Проверьте интернет.');
   } finally {
     btn.textContent = '⬇️ Загрузить данные из облака'; btn.disabled = false;
   }
