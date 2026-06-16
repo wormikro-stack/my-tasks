@@ -182,9 +182,24 @@
   }
   .template-item:hover { border-color: var(--glass-border2); }
   .template-item-name { flex: 1; font-size: 13px; }
+  .template-item-meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
   .template-item-tag { font-size: 10px; color: var(--text3); padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); text-transform: uppercase; }
+  .template-repeat-badge { font-size: 10px; padding: 1px 7px; border-radius: 4px; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
+  .badge-daily { background: rgba(52,216,92,0.1); color: var(--green); border: 1px solid rgba(52,216,92,0.2); }
+  .badge-weekly { background: rgba(79,163,255,0.1); color: var(--accent); border: 1px solid rgba(79,163,255,0.2); }
+  .badge-monthly { background: rgba(255,159,64,0.1); color: var(--orange); border: 1px solid rgba(255,159,64,0.2); }
+  .badge-manual { background: rgba(255,255,255,0.05); color: var(--text3); border: 1px solid var(--glass-border); }
   .template-actions { display: flex; gap: 4px; }
   .templates-empty { text-align: center; padding: 20px; color: var(--text3); font-size: 13px; }
+
+  /* Выбор дней недели */
+  .weekday-picker { display: flex; gap: 5px; flex-wrap: wrap; }
+  .weekday-btn {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--glass-border);
+    background: var(--glass); color: var(--text2); font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all 0.15s; text-align: center; line-height: 34px; padding: 0;
+  }
+  .weekday-btn.active { background: rgba(79,163,255,0.2); border-color: rgba(79,163,255,0.5); color: var(--accent); }
 
   .modal-overlay {
     position: fixed; inset: 0; z-index: 500;
@@ -550,6 +565,33 @@
         <option value="Звонки">📞 Звонки</option>
       </select>
     </div>
+    <div class="form-group">
+      <div class="form-label">Повторение</div>
+      <select class="form-select" id="editTemplateRepeat" onchange="onRepeatChange()">
+        <option value="manual">Без повторения — добавлять вручную</option>
+        <option value="daily">Каждый день</option>
+        <option value="weekly">По дням недели</option>
+        <option value="monthly">Каждое N-е число месяца</option>
+      </select>
+    </div>
+    <!-- Дни недели -->
+    <div class="form-group" id="weekdayGroup" style="display:none">
+      <div class="form-label">Дни недели</div>
+      <div class="weekday-picker">
+        <button type="button" class="weekday-btn" data-day="1" onclick="toggleWeekday(this)">Пн</button>
+        <button type="button" class="weekday-btn" data-day="2" onclick="toggleWeekday(this)">Вт</button>
+        <button type="button" class="weekday-btn" data-day="3" onclick="toggleWeekday(this)">Ср</button>
+        <button type="button" class="weekday-btn" data-day="4" onclick="toggleWeekday(this)">Чт</button>
+        <button type="button" class="weekday-btn" data-day="5" onclick="toggleWeekday(this)">Пт</button>
+        <button type="button" class="weekday-btn" data-day="6" onclick="toggleWeekday(this)">Сб</button>
+        <button type="button" class="weekday-btn" data-day="0" onclick="toggleWeekday(this)">Вс</button>
+      </div>
+    </div>
+    <!-- Число месяца -->
+    <div class="form-group" id="monthdayGroup" style="display:none">
+      <div class="form-label">Число месяца</div>
+      <input class="form-input" id="editTemplateMonthDay" type="number" min="1" max="31" placeholder="Например: 1">
+    </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalEditTemplate')">Отмена</button>
       <button class="btn btn-primary" onclick="saveEditedTemplate()">Сохранить</button>
@@ -874,14 +916,24 @@ function saveAsTemplate() {
   const category = document.getElementById('taskCategory').value;
   if (!name) { showToast('Введите название для шаблона'); return; }
   if (templates.some(t => t.name === name)) { showToast('Такой шаблон уже есть'); return; }
-  templates.push({ id: 'tpl_' + Date.now(), name, category });
+  templates.push({ id: 'tpl_' + Date.now(), name, category, repeat: 'manual', weekdays: [], monthDay: null });
   saveToStorage();
-  showToast('Шаблон сохранён!');
+  showToast('Шаблон сохранён! Настройте повторение в разделе Шаблоны.');
 }
 
 function openTemplatesModal() {
   renderTemplates();
   openModal('modalTemplates');
+}
+
+function repeatLabel(tpl) {
+  if (tpl.repeat === 'daily') return { text: 'Каждый день', cls: 'badge-daily' };
+  if (tpl.repeat === 'weekly' && tpl.weekdays?.length) {
+    const names = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+    return { text: tpl.weekdays.map(d => names[d]).join(', '), cls: 'badge-weekly' };
+  }
+  if (tpl.repeat === 'monthly' && tpl.monthDay) return { text: `${tpl.monthDay}-е число`, cls: 'badge-monthly' };
+  return { text: 'Вручную', cls: 'badge-manual' };
 }
 
 function renderTemplates() {
@@ -890,24 +942,47 @@ function renderTemplates() {
     list.innerHTML = '<div class="templates-empty">Шаблонов пока нет.<br>Создайте задание и нажмите «Сохранить как шаблон».</div>';
     return;
   }
-  list.innerHTML = templates.map(t => `
-    <div class="template-item">
+  list.innerHTML = templates.map(t => {
+    const rl = repeatLabel(t);
+    return `<div class="template-item">
       <span class="template-item-name">${esc(t.name)}</span>
-      <span class="template-item-tag">${esc(t.category)}</span>
+      <div class="template-item-meta">
+        <span class="template-repeat-badge ${rl.cls}">${rl.text}</span>
+        <span class="template-item-tag">${esc(t.category)}</span>
+      </div>
       <div class="template-actions">
         <button class="btn btn-blue btn-icon btn-sm" title="Редактировать" onclick="openEditTemplate('${t.id}')">✏️</button>
         <button class="btn btn-danger btn-icon btn-sm" title="Удалить" onclick="deleteTemplate('${t.id}')">✕</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+}
+
+function templateMatchesDate(tpl, dateStr) {
+  if (tpl.repeat === 'daily') return true;
+  if (tpl.repeat === 'manual') return true;
+  if (tpl.repeat === 'weekly' && tpl.weekdays?.length) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dow = new Date(y, m - 1, d).getDay();
+    return tpl.weekdays.includes(dow);
+  }
+  if (tpl.repeat === 'monthly' && tpl.monthDay) {
+    const day = parseInt(dateStr.split('-')[2]);
+    return day === tpl.monthDay;
+  }
+  return false;
 }
 
 function applyTemplates() {
   if (templates.length === 0) { showToast('Нет шаблонов'); return; }
   const filterDate = document.getElementById('filterDate').value;
   if (!filterDate) { showToast('Сначала выберите день в фильтре'); return; }
+
+  const matched = templates.filter(t => templateMatchesDate(t, filterDate));
+  if (matched.length === 0) { showToast('Нет шаблонов для этого дня'); return; }
+
   let added = 0;
-  templates.forEach(t => {
+  matched.forEach(t => {
     todos.push({ id: 'todo_' + Date.now() + Math.random().toString(36).substring(2,6), name: t.name, date: filterDate, category: t.category, completed: false });
     added++;
   });
@@ -925,21 +1000,54 @@ function deleteTemplate(id) {
   }
 }
 
+function onRepeatChange() {
+  const val = document.getElementById('editTemplateRepeat').value;
+  document.getElementById('weekdayGroup').style.display = val === 'weekly' ? 'block' : 'none';
+  document.getElementById('monthdayGroup').style.display = val === 'monthly' ? 'block' : 'none';
+}
+
+function toggleWeekday(btn) {
+  btn.classList.toggle('active');
+}
+
 function openEditTemplate(id) {
   const tpl = templates.find(t => t.id === id);
   if (!tpl) return;
   editingTemplateId = id;
   document.getElementById('editTemplateName').value = tpl.name;
   document.getElementById('editTemplateCategory').value = tpl.category;
+  document.getElementById('editTemplateRepeat').value = tpl.repeat || 'manual';
+  document.getElementById('editTemplateMonthDay').value = tpl.monthDay || '';
+
+  // Сбрасываем дни недели
+  document.querySelectorAll('.weekday-btn').forEach(btn => {
+    btn.classList.toggle('active', (tpl.weekdays || []).includes(parseInt(btn.dataset.day)));
+  });
+
+  onRepeatChange();
   openModal('modalEditTemplate');
 }
 
 function saveEditedTemplate() {
   const name = document.getElementById('editTemplateName').value.trim();
   const category = document.getElementById('editTemplateCategory').value;
+  const repeat = document.getElementById('editTemplateRepeat').value;
   if (!name) { showToast('Введите название'); return; }
+
+  let weekdays = [];
+  let monthDay = null;
+
+  if (repeat === 'weekly') {
+    weekdays = [...document.querySelectorAll('.weekday-btn.active')].map(b => parseInt(b.dataset.day));
+    if (!weekdays.length) { showToast('Выберите хотя бы один день недели'); return; }
+  }
+  if (repeat === 'monthly') {
+    monthDay = parseInt(document.getElementById('editTemplateMonthDay').value);
+    if (!monthDay || monthDay < 1 || monthDay > 31) { showToast('Введите число от 1 до 31'); return; }
+  }
+
   const tpl = templates.find(t => t.id === editingTemplateId);
-  if (tpl) { tpl.name = name; tpl.category = category; }
+  if (tpl) { tpl.name = name; tpl.category = category; tpl.repeat = repeat; tpl.weekdays = weekdays; tpl.monthDay = monthDay; }
   saveToStorage();
   closeModal('modalEditTemplate');
   renderTemplates();
