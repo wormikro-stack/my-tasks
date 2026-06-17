@@ -621,21 +621,21 @@
     <div class="modal-handle"></div>
     <div class="modal-title">☁️ Синхронизация</div>
 
-    <p style="font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.6">
-      Сохраните данные на одном устройстве — затем загрузите на другом. Всё хранится в облаке автоматически.
+    <p style="font-size:13px; color:var(--text2); margin-bottom:20px; line-height:1.6;">
+      Данные сохраняются автоматически после каждого изменения. При открытии на новом устройстве — загружаются из облака.
     </p>
 
-    <button class="btn btn-primary" id="btnSaveCloud" style="width: 100%; padding: 13px; font-size: 14px; margin-bottom: 10px;" onclick="saveToCloud()">
-      ⬆️ Сохранить данные в облако
+    <button class="btn btn-orange" id="btnLoadCloud" style="width:100%; padding:13px; font-size:14px; margin-bottom:10px;" onclick="loadFromCloud()">
+      ⬇️ Принудительно загрузить из облака
     </button>
 
-    <button class="btn btn-orange" id="btnLoadCloud" style="width: 100%; padding: 13px; font-size: 14px; margin-bottom: 20px;" onclick="loadFromCloud()">
-      ⬇️ Загрузить данные из облака
+    <button class="btn btn-danger" style="width:100%; padding:11px; font-size:13px; margin-bottom:20px;" onclick="resetToken()">
+      🔑 Сбросить токен
     </button>
 
-    <div id="syncStatus" style="display:none; font-size: 12px; text-align: center; padding: 8px; border-radius: 8px;"></div>
+    <div id="syncStatus" style="display:none; font-size:12px; text-align:center; padding:8px; border-radius:8px; margin-bottom:10px;"></div>
 
-    <div class="modal-actions" style="margin-top: 14px;">
+    <div class="modal-actions" style="margin-top:4px;">
       <button class="btn btn-secondary" onclick="closeModal('modalSync')">Закрыть</button>
     </div>
   </div>
@@ -776,6 +776,34 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Индикатор авто-сохранения -->
+<div id="syncIndicator" style="
+  position:fixed; bottom:28px; right:20px;
+  font-size:11px; color:var(--text3);
+  opacity:0; transition:opacity 0.4s;
+  pointer-events:none; z-index:999;
+"></div>
+
+<!-- Стартовый экран ввода токена -->
+<div id="startupOverlay" style="
+  display:none; position:fixed; inset:0; z-index:2000;
+  background:var(--bg1); align-items:center; justify-content:center;
+  flex-direction:column; padding:24px;
+">
+  <div style="max-width:400px; width:100%;">
+    <div style="font-size:32px; text-align:center; margin-bottom:16px;">☁️</div>
+    <div style="font-size:20px; font-weight:700; text-align:center; margin-bottom:8px;">Введите GitHub Token</div>
+    <div style="font-size:13px; color:var(--text2); text-align:center; margin-bottom:24px; line-height:1.6;">
+      Для синхронизации между устройствами нужен Personal Access Token с правом <b>gist</b>.
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:8px;">
+      <input class="form-input" id="startupTokenInput" type="password" placeholder="github_pat_..." style="flex:1;">
+      <button class="btn btn-secondary" onclick="document.getElementById('startupTokenInput').type = document.getElementById('startupTokenInput').type==='password'?'text':'password'" style="padding:0 12px;">👁</button>
+    </div>
+    <button class="btn btn-primary" style="width:100%; padding:13px; font-size:14px;" onclick="submitToken()">Войти и загрузить данные</button>
+  </div>
+</div>
+
 <script>
 // ОСНОВНЫЕ ДАННЫЕ
 let todos = JSON.parse(localStorage.getItem('todo_items') || '[]');
@@ -785,9 +813,16 @@ let editingTaskId = null;
 let movingTaskId = null;
 let editingTemplateId = null;
 
-function init() {
+async function init() {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('filterDate').value = today;
+
+  const token = localStorage.getItem('github_token');
+  if (!token) {
+    showTokenScreen();
+    return;
+  }
+  await syncOnStartup(token);
   render();
 }
 
@@ -795,6 +830,7 @@ function saveToStorage() {
   localStorage.setItem('todo_items', JSON.stringify(todos));
   localStorage.setItem('todo_templates', JSON.stringify(templates));
   render();
+  autoSaveToCloud();
 }
 
 // РЕНДЕР И ЛОГИКА ЗАДАЧ
@@ -1220,15 +1256,120 @@ function executeTransfer() {
 }
 
 // ==========================================
-// JSONBIN СИНХРОНИЗАЦИЯ
+// GITHUB GIST СИНХРОНИЗАЦИЯ
 // ==========================================
 
-const JSONBIN_BIN_ID = '6a2b2194f5f4af5e29e23671';
-const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+const GIST_ID = '4586ad4369f06a422ecf842e8df5b78b';
+const GIST_URL = `https://api.github.com/gists/${GIST_ID}`;
+const GIST_FILENAME = 'data.json';
 
+// --- Экран ввода токена при первом запуске ---
+function showTokenScreen() {
+  document.getElementById('startupOverlay').style.display = 'flex';
+}
+
+function hideTokenScreen() {
+  document.getElementById('startupOverlay').style.display = 'none';
+}
+
+async function submitToken() {
+  const token = document.getElementById('startupTokenInput').value.trim();
+  if (!token) { alert('Введите токен'); return; }
+  localStorage.setItem('github_token', token);
+  hideTokenScreen();
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('filterDate').value = today;
+  await syncOnStartup(token);
+  render();
+}
+
+// --- Стартовая синхронизация ---
+async function syncOnStartup(token) {
+  try {
+    const response = await fetch(GIST_URL, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    });
+    if (!response.ok) return; // тихо пропускаем ошибку сети
+
+    const gist = await response.json();
+    const raw = gist.files?.[GIST_FILENAME]?.content;
+    if (!raw) return;
+
+    const cloudData = JSON.parse(raw);
+    if (!Array.isArray(cloudData.todos)) return;
+
+    const cloudDate = cloudData.savedAt || '';
+    const localDate = localStorage.getItem('last_saved_at') || '';
+
+    if (cloudDate > localDate) {
+      // Облако новее — тихо загружаем
+      todos = cloudData.todos;
+      templates = cloudData.templates || [];
+      svcData = cloudData.svcData || { months: [] };
+      localStorage.setItem('todo_items', JSON.stringify(todos));
+      localStorage.setItem('todo_templates', JSON.stringify(templates));
+      localStorage.setItem('services_data', JSON.stringify(svcData));
+      localStorage.setItem('last_saved_at', cloudDate);
+    }
+  } catch(e) {
+    // тихо игнорируем — работаем офлайн
+  }
+}
+
+// --- Авто-сохранение (с дебаунсом 2 сек) ---
+let _autoSaveTimer = null;
+function autoSaveToCloud() {
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(_doAutoSave, 2000);
+}
+
+async function _doAutoSave() {
+  const token = localStorage.getItem('github_token');
+  if (!token) return;
+  try {
+    const now = new Date().toISOString();
+    const payload = { todos, templates, svcData, savedAt: now };
+    const response = await fetch(GIST_URL, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      },
+      body: JSON.stringify({
+        files: { [GIST_FILENAME]: { content: JSON.stringify(payload, null, 2) } }
+      })
+    });
+    if (response.ok) {
+      localStorage.setItem('last_saved_at', now);
+      showSyncIndicator();
+    }
+  } catch(e) {
+    // тихо — нет интернета, не страшно
+  }
+}
+
+function showSyncIndicator() {
+  const el = document.getElementById('syncIndicator');
+  if (!el) return;
+  el.textContent = '☁️ Сохранено';
+  el.style.opacity = '1';
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => { el.style.opacity = '0'; }, 2000);
+}
+
+// --- Ручная синхронизация (на случай нужды) ---
 function openSyncModal() {
   document.getElementById('syncStatus').style.display = 'none';
   openModal('modalSync');
+}
+
+function toggleTokenVisibility() {
+  const input = document.getElementById('syncToken');
+  input.type = input.type === 'password' ? 'text' : 'password';
 }
 
 function setSyncStatus(msg, color) {
@@ -1239,58 +1380,53 @@ function setSyncStatus(msg, color) {
   el.style.display = 'block';
 }
 
-async function saveToCloud() {
-  const btn = document.getElementById('btnSaveCloud');
-  btn.textContent = '⏳ Сохранение...'; btn.disabled = true;
-
-  try {
-    const response = await fetch(JSONBIN_URL, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ todos, templates, svcData, savedAt: new Date().toISOString() })
-    });
-
-    if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
-
-    closeModal('modalSync');
-    showToast('✓ Данные сохранены в облако!');
-  } catch (e) {
-    showToast('✗ Ошибка сохранения. Проверьте интернет.');
-  } finally {
-    btn.textContent = '⬆️ Сохранить данные в облако'; btn.disabled = false;
-  }
-}
-
 async function loadFromCloud() {
+  const token = localStorage.getItem('github_token');
+  if (!token) { showToast('Токен не найден'); return; }
+
   const btn = document.getElementById('btnLoadCloud');
   btn.textContent = '⏳ Загрузка...'; btn.disabled = true;
 
   try {
-    const response = await fetch(JSONBIN_URL + '/latest', {
-      headers: { 'Content-Type': 'application/json' }
+    const response = await fetch(GIST_URL, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
     });
 
+    if (response.status === 401) throw new Error('Неверный токен');
     if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
 
-    const data = await response.json();
-    const loadedTodos = data.record?.todos;
-    const loadedTemplates = data.record?.templates || [];
-    const loadedSvcData = data.record?.svcData || { months: [] };
+    const gist = await response.json();
+    const raw = gist.files?.[GIST_FILENAME]?.content;
+    if (!raw) throw new Error('Файл data.json не найден в Gist');
 
-    if (!Array.isArray(loadedTodos)) throw new Error('Неверный формат данных');
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data.todos)) throw new Error('Неверный формат данных');
 
-    todos = loadedTodos;
-    templates = loadedTemplates;
-    svcData = loadedSvcData;
-    saveToStorage();
+    todos = data.todos;
+    templates = data.templates || [];
+    svcData = data.svcData || { months: [] };
+    localStorage.setItem('todo_items', JSON.stringify(todos));
+    localStorage.setItem('todo_templates', JSON.stringify(templates));
     localStorage.setItem('services_data', JSON.stringify(svcData));
+    localStorage.setItem('last_saved_at', data.savedAt || '');
+    render();
     closeModal('modalSync');
     showToast('✓ Данные загружены из облака!');
   } catch (e) {
-    showToast('✗ Ошибка загрузки. Проверьте интернет.');
+    showToast('✗ ' + e.message);
   } finally {
     btn.textContent = '⬇️ Загрузить данные из облака'; btn.disabled = false;
   }
+}
+
+function resetToken() {
+  if (!confirm('Сбросить токен? Потребуется ввести заново при следующем открытии.')) return;
+  localStorage.removeItem('github_token');
+  closeModal('modalSync');
+  showToast('Токен удалён');
 }
 
 // ОКНО НЕВЫПОЛНЕННЫХ ЗАДАНИЙ
@@ -1443,6 +1579,7 @@ const SVC_MONTHS_S = ['Янв','Фев','Мар','Апр','Май','Июн','И�
 
 function svcSave() {
   localStorage.setItem('services_data', JSON.stringify(svcData));
+  autoSaveToCloud();
 }
 function svcUid() { return '_s' + Math.random().toString(36).substr(2,9); }
 function svcFmt(v) { return (parseFloat(v)||0).toLocaleString('ru',{minimumFractionDigits:0,maximumFractionDigits:2}); }
