@@ -891,6 +891,7 @@ function openAddTask() {
   document.getElementById('taskDate').value = document.getElementById('filterDate').value || new Date().toISOString().split('T')[0];
   document.getElementById('taskCategory').value = 'Работа';
   openModal('modalTask');
+  setTimeout(() => document.getElementById('taskName').focus(), 50); // <- добавить
 }
 
 function openEditTask(id, event) {
