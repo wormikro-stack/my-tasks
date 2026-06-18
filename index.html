@@ -1559,6 +1559,12 @@ document.querySelectorAll('.modal-overlay').forEach(el => { el.addEventListener(
 
 // Ctrl+Enter — сохранить задание, Escape — закрыть активный модал
 document.addEventListener('keydown', e => {
+  // Insert — открыть форму нового задания
+  if (e.key === 'Insert') {
+    e.preventDefault();
+    openAddTask();
+    return;
+  }
   // Escape — закрыть верхний открытый модал
   if (e.key === 'Escape') {
     const opened = [...document.querySelectorAll('.modal-overlay.open, .fullscreen-overlay.open')]
