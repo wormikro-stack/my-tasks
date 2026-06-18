@@ -1556,6 +1556,29 @@ function setFilterAll() { document.getElementById('filterDate').value = ''; rend
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(el => { el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); }); });
+
+// Ctrl+Enter — сохранить задание, Escape — закрыть активный модал
+document.addEventListener('keydown', e => {
+  // Escape — закрыть верхний открытый модал
+  if (e.key === 'Escape') {
+    const opened = [...document.querySelectorAll('.modal-overlay.open, .fullscreen-overlay.open')]
+      .filter(el => getComputedStyle(el).pointerEvents !== 'none');
+    if (opened.length) {
+      const top = opened[opened.length - 1];
+      if (top.id === 'overlayIncomplete') closeIncompleteModal();
+      else closeModal(top.id);
+    }
+    return;
+  }
+
+  // Ctrl+Enter — сохранить задание если открыт modalTask
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    if (document.getElementById('modalTask').classList.contains('open')) {
+      e.preventDefault();
+      saveTask();
+    }
+  }
+});
 function esc(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
 function formatDate(dateStr) { if (!dateStr) return ''; const [y, m, d] = dateStr.split('-'); return `${d}.${m}.${y}`; }
