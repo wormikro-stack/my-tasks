@@ -702,9 +702,9 @@
   </div>
   <div class="fullscreen-body">
     <div class="period-tabs">
-      <button class="period-tab active" onclick="setIncompletePeriod(7, this)">7 дней</button>
+      <button class="period-tab" onclick="setIncompletePeriod(7, this)">7 дней</button>
       <button class="period-tab" onclick="setIncompletePeriod(30, this)">30 дней</button>
-      <button class="period-tab" onclick="setIncompletePeriod(0, this)">Всё время</button>
+      <button class="period-tab active" onclick="setIncompletePeriod(0, this)">Всё время</button>
     </div>
     <div id="incompleteCatFilter" class="cat-pills"></div>
     <div id="incompleteList"></div>
@@ -1619,7 +1619,7 @@ let incompletePeriodDays = 7;
 function openIncompleteModal() {
   incompletePeriodDays = 7;
   incompleteCatFilter = null;
-  document.querySelectorAll('.period-tab').forEach((t,i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('.period-tab').forEach((t,i) => t.classList.toggle('active', i === 2));
   renderIncomplete();
   document.getElementById('overlayIncomplete').classList.add('open');
 }
