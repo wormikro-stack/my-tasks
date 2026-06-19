@@ -628,7 +628,7 @@
     </div>
     <div class="form-group">
       <div class="form-label">Категория</div>
-      <select class="form-input form-select" id="editTplTaskCategory"></select>
+      <select class="form-input form-select" id="editTplTaskCategory" onkeydown="if(event.ctrlKey && event.key==='Enter') saveTplTask()"></select>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalEditTplTask')">Отмена</button>
