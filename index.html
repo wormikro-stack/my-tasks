@@ -251,7 +251,8 @@
     border-bottom: 1px solid var(--glass-border);
     padding: 14px 20px; display: flex; align-items: center; gap: 12px;
   }
-  .fullscreen-body { flex: 1; overflow-y: auto; padding: 20px; max-width: 650px; width: 100%; margin: 0 auto; }
+  .fullscreen-body { flex: 1; overflow-y: auto; padding: 20px; max-width: 650px; width: 100%; margin: 0 auto; scrollbar-width: none; }
+.fullscreen-body::-webkit-scrollbar { display: none; }
   .period-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
   .period-tab {
     padding: 6px 16px; border-radius: 980px; font-size: 12px; font-weight: 500;
