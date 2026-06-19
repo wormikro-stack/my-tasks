@@ -618,6 +618,25 @@
   </div>
 </div>
 
+<!-- Редактирование задания шаблона -->
+<div class="modal-overlay" id="modalEditTplTask" style="z-index:700">
+  <div class="modal">
+    <div class="modal-title">Редактировать задание</div>
+    <div class="form-group">
+      <div class="form-label">Название</div>
+      <textarea class="form-input" id="editTplTaskName" rows="3" onkeydown="if(event.ctrlKey && event.key==='Enter') saveTplTask()"></textarea>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Категория</div>
+      <select class="form-input form-select" id="editTplTaskCategory"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalEditTplTask')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveTplTask()">Сохранить</button>
+    </div>
+  </div>
+</div>
+  
 <!-- Создание/редактирование папки -->
 <div class="modal-overlay" id="modalFolder" style="z-index:600">
   <div class="modal">
@@ -1236,6 +1255,7 @@ function renderTemplates() {
           <span class="tpl-task-name">${esc(t.name)}</span>
           <span class="tpl-task-tag">${esc(t.category)}</span>
           <div class="tpl-task-actions">
+            <button class="btn btn-blue btn-icon btn-sm" onclick="openEditTplTask('${f.id}','${t.id}')">✏️</button>
             <button class="btn btn-danger btn-icon btn-sm" onclick="deleteTaskFromFolder('${f.id}','${t.id}')">✕</button>
           </div>
         </div>`).join('')
@@ -1267,6 +1287,39 @@ function toggleFolder(id) {
   document.getElementById('folder_' + id)?.classList.toggle('open');
 }
 
+  let editingTplFolderId = null, editingTplTaskId = null;
+
+function openEditTplTask(folderId, taskId) {
+  const folder = templates.find(f => f.id === folderId);
+  if (!folder) return;
+  const task = (folder.tasks || []).find(t => t.id === taskId);
+  if (!task) return;
+  editingTplFolderId = folderId;
+  editingTplTaskId = taskId;
+  document.getElementById('editTplTaskName').value = task.name;
+  const sel = document.getElementById('editTplTaskCategory');
+  sel.innerHTML = categories.map(c => `<option value="${esc(c.name)}" ${c.name === task.category ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  openModal('modalEditTplTask');
+}
+
+function saveTplTask() {
+  const name = document.getElementById('editTplTaskName').value.trim();
+  const category = document.getElementById('editTplTaskCategory').value;
+  if (!name) { showToast('Введите название'); return; }
+  const folder = templates.find(f => f.id === editingTplFolderId);
+  if (!folder) return;
+  const task = (folder.tasks || []).find(t => t.id === editingTplTaskId);
+  if (!task) return;
+  task.name = name;
+  task.category = category;
+  saveToStorage();
+  closeModal('modalEditTplTask');
+  renderTemplates();
+  const el = document.getElementById('folder_' + editingTplFolderId);
+  if (el) el.classList.add('open');
+  showToast('Задание обновлено');
+}
+  
 function deleteTaskFromFolder(folderId, taskId) {
   const folder = templates.find(f => f.id === folderId);
   if (!folder) return;
