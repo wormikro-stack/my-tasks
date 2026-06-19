@@ -231,8 +231,9 @@
     border: 1px solid var(--glass-border2);
     width: calc(100% - 32px); max-width: 500px; padding: 22px;
     transform: translateY(-20px); transition: transform 0.32s cubic-bezier(.25,.72,0,1);
-    max-height: calc(100vh - 80px); overflow-y: auto;
+    max-height: calc(100vh - 80px); overflow-y: auto; scrollbar-width: none;
   }
+  .modal::-webkit-scrollbar { display: none; }
   .modal-overlay.open .modal { transform: translateY(0); }
   .modal-handle { display: none; }
   .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 18px; }
