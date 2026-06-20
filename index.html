@@ -991,9 +991,15 @@ function render() {
   let filtered = todos;
   if (filterDate) filtered = todos.filter(t => t.date === filterDate);
 
-  // Рендер пилюль категорий
+  // Рендер пилюль категорий — показываем только те категории, где на этот день
+  // ещё остались невыполненные задания. Если все задания категории выполнены,
+  // её кнопка пропадает из списка.
   const catFilterEl = document.getElementById('mainCatFilter');
-  const usedCats = [...new Set(filtered.map(t => t.category).filter(Boolean))];
+  const usedCats = [...new Set(filtered.filter(t => !t.completed).map(t => t.category).filter(Boolean))];
+  // Если выбранная категория больше не содержит невыполненных заданий — сбрасываем фильтр на "Все"
+  if (mainCatFilter && !usedCats.includes(mainCatFilter)) {
+    mainCatFilter = null;
+  }
   if (usedCats.length > 1) {
     catFilterEl.style.display = 'flex';
     catFilterEl.innerHTML =
