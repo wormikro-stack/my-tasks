@@ -1042,6 +1042,9 @@ function render() {
       const startBtnHtml = !item.timeStart
         ? `<button class="btn btn-green btn-icon btn-sm" title="Начать (зафиксировать время старта)" onclick="quickStartTime('${item.id}', event)">▶</button>`
         : '';
+      const stopBtnHtml = (item.timeStart && !item.timeEnd)
+        ? `<button class="btn btn-danger btn-icon btn-sm" title="Завершить (зафиксировать время окончания)" onclick="quickStopTime('${item.id}', event)">⏹</button>`
+        : '';
       div.innerHTML = `
         <div class="checkbox-wrapper" onclick="toggleComplete('${item.id}')"><div class="custom-checkbox"></div></div>
         <div class="task-content">
@@ -1050,6 +1053,7 @@ function render() {
         </div>
         <div class="task-actions">
           ${startBtnHtml}
+          ${stopBtnHtml}
           <button class="btn btn-blue btn-icon btn-sm" title="Редактировать" onclick="openEditTask('${item.id}', event)">✏️</button>
           <button class="btn btn-orange btn-icon btn-sm" title="Перенести" onclick="openMoveOne('${item.id}', event)">↷</button>
           <button class="btn btn-danger btn-icon btn-sm" onclick="deleteTask('${item.id}', event)">✕</button>
@@ -1148,6 +1152,16 @@ function quickStartTime(id, event) {
   item.timeEnd = null;
   saveToStorage();
   showToast(`Начато в ${item.timeStart}`);
+}
+
+// Кнопка "⏹" на карточке задания — фиксирует текущее время как время окончания
+function quickStopTime(id, event) {
+  event.stopPropagation();
+  const item = todos.find(t => t.id === id);
+  if (!item) return;
+  item.timeEnd = currentTimeStr();
+  saveToStorage();
+  showToast(`Завершено: с ${item.timeStart} по ${item.timeEnd} (${formatDuration(calcDurationMinutes(item.timeStart, item.timeEnd))})`);
 }
 
 function currentTimeStr() {
