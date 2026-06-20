@@ -174,6 +174,29 @@
   }
   .btn-blue:hover { background: rgba(79,163,255,0.22); }
 
+  .btn-green {
+    background: rgba(52,216,92,0.12); color: var(--green);
+    border: 1px solid rgba(52,216,92,0.2);
+  }
+  .btn-green:hover { background: rgba(52,216,92,0.22); }
+
+  .task-time {
+    padding: 1px 6px; border-radius: 4px; background: rgba(52,216,92,0.10);
+    border: 1px solid rgba(52,216,92,0.25); font-size: 10px; color: var(--green);
+    white-space: nowrap;
+  }
+  .task-time.in-progress { background: rgba(255,159,64,0.10); border-color: rgba(255,159,64,0.25); color: var(--orange); }
+
+  .time-row { display: flex; gap: 10px; }
+  .time-row .form-group { flex: 1; margin-bottom: 0; }
+  .time-field-wrap { display: flex; gap: 6px; align-items: center; }
+  .time-now-btn {
+    flex-shrink: 0; padding: 8px 10px; border-radius: var(--radius3);
+    background: var(--glass2); border: 1px solid var(--glass-border); color: var(--text2);
+    font-size: 11px; cursor: pointer; font-family: inherit;
+  }
+  .time-now-btn:hover { background: var(--glass3); color: var(--text); }
+
   /* ШАБЛОНЫ — ПАПКИ */
   .tpl-folder {
     background: var(--glass); border: 1px solid var(--glass-border);
@@ -532,6 +555,25 @@
     <div class="form-group">
       <div class="form-label">Дата</div>
       <input class="form-input" id="taskDate" type="date">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Время выполнения (необязательно)</div>
+      <div class="time-row">
+        <div class="form-group">
+          <div style="font-size:10px; color:var(--text3); margin-bottom:4px;">Начало</div>
+          <div class="time-field-wrap">
+            <input class="form-input" id="taskTimeStart" type="time">
+            <button type="button" class="time-now-btn" onclick="setNowTime('taskTimeStart')">Сейчас</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <div style="font-size:10px; color:var(--text3); margin-bottom:4px;">Окончание</div>
+          <div class="time-field-wrap">
+            <input class="form-input" id="taskTimeEnd" type="time">
+            <button type="button" class="time-now-btn" onclick="setNowTime('taskTimeEnd')">Сейчас</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="form-group">
       <div class="form-label">Категория</div>
@@ -990,13 +1032,24 @@ function render() {
       const catLabel = item.category;
       const div = document.createElement('div');
       div.className = `task-item ${item.completed ? 'completed' : ''}`;
+      let timeHtml = '';
+      if (item.timeStart && item.timeEnd) {
+        const mins = calcDurationMinutes(item.timeStart, item.timeEnd);
+        timeHtml = `<span class="task-time">🕐 ${item.timeStart}–${item.timeEnd} • ${formatDuration(mins)}</span>`;
+      } else if (item.timeStart) {
+        timeHtml = `<span class="task-time in-progress">▶ начато в ${item.timeStart}</span>`;
+      }
+      const startBtnHtml = !item.timeStart
+        ? `<button class="btn btn-green btn-icon btn-sm" title="Начать (зафиксировать время старта)" onclick="quickStartTime('${item.id}', event)">▶</button>`
+        : '';
       div.innerHTML = `
         <div class="checkbox-wrapper" onclick="toggleComplete('${item.id}')"><div class="custom-checkbox"></div></div>
         <div class="task-content">
           <div class="task-title">${esc(item.name)}</div>
-          <div class="task-meta"><span class="task-tag">${esc(catLabel)}</span><span>📅 ${formatDate(item.date)}</span></div>
+          <div class="task-meta"><span class="task-tag">${esc(catLabel)}</span><span>📅 ${formatDate(item.date)}</span>${timeHtml}</div>
         </div>
         <div class="task-actions">
+          ${startBtnHtml}
           <button class="btn btn-blue btn-icon btn-sm" title="Редактировать" onclick="openEditTask('${item.id}', event)">✏️</button>
           <button class="btn btn-orange btn-icon btn-sm" title="Перенести" onclick="openMoveOne('${item.id}', event)">↷</button>
           <button class="btn btn-danger btn-icon btn-sm" onclick="deleteTask('${item.id}', event)">✕</button>
@@ -1033,6 +1086,8 @@ function openAddTask() {
   document.getElementById('modalTaskTitle').textContent = 'Новое задание';
   document.getElementById('taskName').value = '';
   document.getElementById('taskDate').value = document.getElementById('filterDate').value || new Date().toISOString().split('T')[0];
+  document.getElementById('taskTimeStart').value = '';
+  document.getElementById('taskTimeEnd').value = '';
   populateCategorySelect(categories[0]?.name || '');
   openModal('modalTask');
   setTimeout(() => document.getElementById('taskName').focus(), 50);
@@ -1046,6 +1101,8 @@ function openEditTask(id, event) {
   document.getElementById('modalTaskTitle').textContent = 'Редактировать задание';
   document.getElementById('taskName').value = item.name;
   document.getElementById('taskDate').value = item.date;
+  document.getElementById('taskTimeStart').value = item.timeStart || '';
+  document.getElementById('taskTimeEnd').value = item.timeEnd || '';
   populateCategorySelect(item.category);
   openModal('modalTask');
 }
@@ -1054,23 +1111,69 @@ function saveTask() {
   const name = document.getElementById('taskName').value.trim();
   const date = document.getElementById('taskDate').value;
   const category = document.getElementById('taskCategory').value;
+  const timeStart = document.getElementById('taskTimeStart').value || null;
+  const timeEnd = document.getElementById('taskTimeEnd').value || null;
   if (!name) { showToast('Введите название задания'); return; }
   if (!date) { showToast('Выберите дату'); return; }
 
   if (editingTaskId) {
     const item = todos.find(t => t.id === editingTaskId);
-    if (item) { item.name = name; item.date = date; item.category = category; }
+    if (item) { item.name = name; item.date = date; item.category = category; item.timeStart = timeStart; item.timeEnd = timeEnd; }
     saveToStorage(); closeModal('modalTask'); showToast('Задание обновлено');
     editingTaskId = null;
   } else {
-    todos.push({ id: 'todo_' + Date.now(), name, date, category, completed: false });
+    todos.push({ id: 'todo_' + Date.now(), name, date, category, completed: false, timeStart, timeEnd });
     saveToStorage(); closeModal('modalTask'); showToast('Задание добавлено');
   }
 }
 
 function toggleComplete(id) {
   const item = todos.find(t => t.id === id);
-  if (item) { item.completed = !item.completed; saveToStorage(); }
+  if (!item) return;
+  item.completed = !item.completed;
+  // Если задание помечается выполненным, начато (есть время начала), но время окончания ещё не проставлено — фиксируем его автоматически
+  if (item.completed && item.timeStart && !item.timeEnd) {
+    item.timeEnd = currentTimeStr();
+    showToast(`Готово: с ${item.timeStart} по ${item.timeEnd} (${formatDuration(calcDurationMinutes(item.timeStart, item.timeEnd))})`);
+  }
+  saveToStorage();
+}
+
+// Кнопка "▶" на карточке задания — фиксирует текущее время как время начала
+function quickStartTime(id, event) {
+  event.stopPropagation();
+  const item = todos.find(t => t.id === id);
+  if (!item) return;
+  item.timeStart = currentTimeStr();
+  item.timeEnd = null;
+  saveToStorage();
+  showToast(`Начато в ${item.timeStart}`);
+}
+
+function currentTimeStr() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+function setNowTime(fieldId) {
+  document.getElementById(fieldId).value = currentTimeStr();
+}
+
+function calcDurationMinutes(start, end) {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins < 0) mins += 24 * 60; // на случай работы после полуночи
+  return mins;
+}
+
+function formatDuration(mins) {
+  if (mins <= 0) return '0 мин';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m} мин`;
+  if (m === 0) return `${h} ч`;
+  return `${h} ч ${m} мин`;
 }
 
 function deleteTask(id, event) {
