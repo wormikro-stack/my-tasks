@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Касса</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg1: #0a0a0f;
+    --bg2: #0f0f1a;
+    --glass: rgba(255,255,255,0.05);
+    --glass2: rgba(255,255,255,0.08);
+    --glass3: rgba(255,255,255,0.12);
+    --glass-border: rgba(255,255,255,0.10);
+    --glass-border2: rgba(255,255,255,0.18);
+    --text: #f0f4ff;
+    --text2: rgba(200,215,255,0.55);
+    --text3: rgba(200,215,255,0.28);
+    --accent: #4fa3ff;
+    --green: #34d85c;
+    --orange: #ff9f40;
+    --red: #ff5e57;
+    --radius: 18px;
+    --radius2: 13px;
+    --radius3: 9px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg1);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  body::before, body::after {
+    content:''; position:fixed; border-radius:50%; pointer-events:none; z-index:0;
+    filter: blur(90px);
+  }
+  body::before {
+    width:600px; height:600px;
+    background: radial-gradient(circle, rgba(60,100,255,0.12) 0%, transparent 70%);
+    top:-150px; left:-100px;
+  }
+  body::after {
+    width:500px; height:500px;
+    background: radial-gradient(circle, rgba(140,60,255,0.10) 0%, transparent 70%);
+    bottom:-100px; right:-100px;
+  }
+
+  .header {
+    position:sticky; top:0; z-index:100;
+    background: rgba(10,10,20,0.85);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 12px 16px 10px;
+  }
+  .header-row1 {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .header-left { display:flex; align-items:center; gap:10px; }
+  .header-icon {
+    width:34px; height:34px; border-radius:10px;
+    background: linear-gradient(135deg, rgba(79,163,255,0.6), rgba(140,60,255,0.5));
+    border: 1px solid rgba(255,255,255,0.15);
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px;
+    box-shadow: 0 2px 16px rgba(79,163,255,0.25);
+  }
+  .header-title { font-size:17px; font-weight:600; letter-spacing:-0.4px; }
+  .header-actions { display:flex; gap:6px; }
+  .header-row2 {
+    display:flex; align-items:center; gap:8px;
+  }
+  .header-date-input {
+    flex:1;
+    background:var(--glass2);
+    border:1px solid var(--glass-border);
+    border-radius:980px;
+    padding:8px 14px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:13px; font-weight:500;
+    outline:none;
+    transition:border-color 0.18s;
+    min-width:0;
+  }
+  .header-date-input:focus { border-color:var(--accent); }
+
+  .btn {
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    padding:8px 16px; border-radius:980px;
+    font-size:13px; font-weight:500;
+    border:none; cursor:pointer;
+    transition:all 0.18s ease;
+    font-family:inherit; position:relative; z-index:1;
+  }
+  .btn:active { transform:scale(0.95); }
+  .btn-primary {
+    background: linear-gradient(135deg, rgba(79,163,255,0.85), rgba(100,120,255,0.85));
+    color:#fff; border:1px solid rgba(255,255,255,0.2);
+    box-shadow: 0 2px 16px rgba(79,163,255,0.3);
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, rgba(79,163,255,1), rgba(100,120,255,1));
+    box-shadow: 0 4px 20px rgba(79,163,255,0.45);
+  }
+  .btn-secondary {
+    background: var(--glass2); color:var(--text);
+    border:1px solid var(--glass-border); backdrop-filter:blur(10px);
+  }
+  .btn-secondary:hover { background:var(--glass3); border-color:var(--glass-border2); }
+  .btn-danger {
+    background: rgba(255,94,87,0.15); color:var(--red);
+    border:1px solid rgba(255,94,87,0.25);
+  }
+  .btn-danger:hover { background:rgba(255,94,87,0.25); }
+  .btn-sm { padding:5px 11px; font-size:12px; }
+  .btn-icon { padding:7px; width:32px; height:32px; }
+
+  .main {
+    padding:20px 24px 80px;
+    max-width:620px;
+    margin:0 auto;
+    position:relative; z-index:1;
+  }
+
+  .section {
+    background:var(--glass);
+    border:1px solid var(--glass-border);
+    border-radius:var(--radius);
+    padding:20px;
+    margin-bottom:14px;
+    backdrop-filter:blur(10px);
+  }
+  .section-title {
+    font-size:12px; font-weight:600;
+    color:var(--text3);
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    margin-bottom:14px;
+    display:flex; align-items:center; gap:6px;
+  }
+
+  .field { margin-bottom:12px; }
+  .field label {
+    display:block;
+    font-size:11px; font-weight:500;
+    color:var(--text3);
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    margin-bottom:5px;
+  }
+  .field input {
+    width:100%;
+    background:var(--glass);
+    border:1px solid var(--glass-border);
+    border-radius:var(--radius3);
+    padding:9px 12px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:14px;
+    outline:none;
+    transition:border-color 0.18s;
+  }
+  .field input:focus { border-color:var(--accent); }
+  .field input::placeholder { color:var(--text3); }
+
+  .z-item, .rko-item {
+    display:flex; align-items:center; gap:8px;
+    margin-bottom:6px;
+  }
+  .z-item input {
+    flex:1;
+    background:var(--glass);
+    border:1px solid var(--glass-border);
+    border-radius:var(--radius3);
+    padding:8px 12px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:13px;
+    outline:none;
+    transition:border-color 0.18s;
+  }
+  .z-item input:focus { border-color:var(--accent); }
+
+  .z-total {
+    font-size:13px; color:var(--text2);
+    margin:6px 0 10px;
+    padding:8px 12px;
+    background:var(--glass);
+    border-radius:var(--radius3);
+    display:flex; justify-content:space-between;
+  }
+  .z-total strong { color:var(--text); }
+
+  .computed-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:7px 0;
+    border-top:1px solid var(--glass-border);
+    font-size:13px;
+  }
+  .computed-row .label { color:var(--text2); }
+  .computed-row .value { font-weight:600; }
+  .val-green { color:var(--green); }
+  .val-red { color:var(--red); }
+  .val-orange { color:var(--orange); }
+  .val-blue { color:var(--accent); }
+
+  .rko-select {
+    flex:1;
+    background:var(--glass);
+    border:1px solid var(--glass-border);
+    border-radius:var(--radius3);
+    padding:8px 12px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:13px;
+    outline:none;
+    cursor:pointer;
+  }
+  .rko-select option { background:#1a1a2e; }
+  .rko-amount {
+    width:110px;
+    background:var(--glass);
+    border:1px solid var(--glass-border);
+    border-radius:var(--radius3);
+    padding:8px 12px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:13px;
+    outline:none;
+    transition:border-color 0.18s;
+  }
+  .rko-amount:focus { border-color:var(--accent); }
+
+  /* ОСТАТКИ ПО КАССАМ */
+  .ostatok-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:12px;
+    margin-bottom:12px;
+  }
+  .ostatok-card {
+    background:var(--glass2);
+    border:1px solid var(--glass-border);
+    border-radius:var(--radius2);
+    padding:14px;
+  }
+  .ostatok-label {
+    font-size:11px; font-weight:600; color:var(--text3);
+    text-transform:uppercase; letter-spacing:0.5px;
+    margin-bottom:8px;
+  }
+  .ostatok-card input {
+    width:100%;
+    background:var(--glass);
+    border:1px solid var(--glass-border);
+    border-radius:var(--radius3);
+    padding:9px 12px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:15px; font-weight:600;
+    outline:none;
+    transition:border-color 0.18s;
+  }
+  .ostatok-card input:focus { border-color:var(--accent); }
+  .ostatok-card input::placeholder { color:var(--text3); font-weight:400; }
+
+  /* ИТОГ ОСТАТКОВ */
+  .ostatok-check {
+    padding:12px 14px;
+    border-radius:var(--radius2);
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:13px;
+    border:1px solid var(--glass-border);
+    transition:all 0.2s;
+  }
+  .ostatok-check.ok { background:rgba(52,216,92,0.08); border-color:rgba(52,216,92,0.25); }
+  .ostatok-check.fail { background:rgba(255,94,87,0.08); border-color:rgba(255,94,87,0.25); }
+  .ostatok-check .lbl { color:var(--text2); }
+  .ostatok-check .val { font-weight:700; font-size:15px; }
+
+  /* 1С */
+  .onec-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:12px;
+  }
+
+  .diff-row {
+    display:flex; justify-content:space-between;
+    font-size:13px; padding:5px 0;
+    border-bottom:1px solid var(--glass);
+  }
+  .diff-row:last-child { border-bottom:none; }
+  .diff-row .lbl { color:var(--text2); }
+
+  /* HISTORY */
+  .history-item {
+    background:var(--glass);
+    border:1px solid var(--glass-border);
+    border-radius:var(--radius2);
+    padding:14px 16px;
+    margin-bottom:10px;
+    cursor:pointer;
+    transition:all 0.18s;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .history-item:hover { background:var(--glass2); border-color:var(--glass-border2); }
+  .history-date { font-size:14px; font-weight:600; }
+  .history-meta { font-size:12px; color:var(--text2); margin-top:3px; }
+
+  /* MODAL */
+  .modal-overlay {
+    display:none; position:fixed; inset:0; z-index:200;
+    background:rgba(5,5,15,0.75);
+    backdrop-filter:blur(8px);
+    align-items:center; justify-content:center;
+  }
+  .modal-overlay.open { display:flex; }
+  .modal {
+    background:#13131f;
+    border:1px solid var(--glass-border2);
+    border-radius:var(--radius);
+    padding:24px;
+    width:90%; max-width:460px;
+    max-height:82vh; overflow-y:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,0.6);
+  }
+  .modal-title { font-size:16px; font-weight:600; margin-bottom:16px; }
+  .modal-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
+
+  .rko-ref-item {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 10px;
+    background:var(--glass);
+    border-radius:var(--radius3);
+    margin-bottom:6px;
+    font-size:13px;
+  }
+
+  .result-row {
+    display:flex; justify-content:space-between;
+    font-size:13px; padding:5px 0;
+    border-bottom:1px solid var(--glass);
+  }
+  .result-row:last-child { border-bottom:none; }
+  .result-row .lbl { color:var(--text2); }
+
+  .divider { height:1px; background:var(--glass-border); margin:14px 0; }
+
+  .save-bar {
+    position:fixed; bottom:0; left:0; right:0; z-index:150;
+    background:rgba(10,10,20,0.85);
+    backdrop-filter:blur(20px);
+    border-top:1px solid var(--glass-border);
+    padding:12px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .save-bar-info { font-size:13px; color:var(--text2); }
+
+  .toast {
+    position:fixed; bottom:70px; left:50%; transform:translateX(-50%);
+    background:#1e1e30; border:1px solid var(--glass-border2);
+    border-radius:980px; padding:10px 20px;
+    font-size:13px; font-weight:500;
+    z-index:300; opacity:0;
+    transition:opacity 0.3s;
+    pointer-events:none; white-space:nowrap;
+  }
+  .toast.show { opacity:1; }
+
+  .empty { text-align:center; padding:48px 24px; color:var(--text3); font-size:14px; }
+  .empty-icon { font-size:36px; margin-bottom:12px; }
+
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; }
+  input[type=number] { -moz-appearance:textfield; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row1">
+    <div class="header-left">
+      <div class="header-icon">💶</div>
+      <div class="header-title">Касса</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" onclick="openRkoRef()">📋 РКО</button>
+      <button class="btn btn-secondary btn-sm" onclick="showTab('history')" id="tab-history-btn">🕐 История</button>
+      <button class="btn btn-secondary btn-sm" onclick="showTab('new')" id="tab-new-btn" style="display:none">✏️ Ввод</button>
+    </div>
+  </div>
+  <div class="header-row2" id="header-date-row">
+    <input type="date" class="header-date-input" id="entry-date" onchange="onDateChange()">
+    <button class="btn btn-secondary btn-icon" onclick="goToday()" title="Сегодня">📅</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- TAB: ВВОД -->
+  <div id="view-new">
+
+    <!-- Z-ОТЧЁТЫ -->
+    <div class="section">
+      <div class="section-title">📄 Z-отчёты</div>
+      <div id="z-list"></div>
+      <div class="z-total" id="z-total-row">
+        <span>Сумма Z-отчётов</span>
+        <strong id="z-total-val">0,00 €</strong>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="addZ()">+ Добавить Z-отчёт</button>
+    </div>
+
+    <!-- НАЛ / ТЕРМИНАЛ -->
+    <div class="section">
+      <div class="section-title">💵 Нал и терминал</div>
+
+      <div class="field">
+        <label>Терминал (безнал)</label>
+        <input type="number" id="terminal" placeholder="0.00" step="0.01" oninput="calc()">
+      </div>
+
+      <div class="computed-row">
+        <span class="label">Нал по Z (расчёт)</span>
+        <span class="value val-blue" id="nal-calc">0,00 €</span>
+      </div>
+
+      <div class="field" style="margin-top:12px">
+        <label>Фактический нал</label>
+        <input type="number" id="nal-fact" placeholder="0.00" step="0.01" oninput="calc()">
+      </div>
+
+      <div class="field">
+        <label>Излишек (мелочь на чай)</label>
+        <input type="number" id="izlishek" placeholder="0.00" step="0.01" oninput="calc()">
+      </div>
+    </div>
+
+    <!-- РКО -->
+    <div class="section">
+      <div class="section-title">📤 РКО — расходы из кассы</div>
+      <div id="rko-list"></div>
+      <button class="btn btn-secondary btn-sm" onclick="addRko()">+ Добавить РКО</button>
+      <div class="computed-row" style="margin-top:10px">
+        <span class="label">Итого РКО</span>
+        <span class="value val-orange" id="rko-total">0,00 €</span>
+      </div>
+    </div>
+
+    <!-- ОСТАТКИ -->
+    <div class="section">
+      <div class="section-title">🏦 Остатки на конец дня</div>
+
+      <div class="computed-row" style="padding-top:0;border-top:none;margin-bottom:4px">
+        <span class="label">Остаток с предыдущего дня</span>
+        <span class="value val-blue" id="prev-ostatok-show">0,00 €</span>
+      </div>
+      <div style="font-size:11px;margin-bottom:10px;padding-left:2px" id="prev-ostatok-hint"></div>
+      <div class="computed-row" style="margin-bottom:14px">
+        <span class="label">Расчётный остаток</span>
+        <span class="value" id="ostatok-calc">0,00 €</span>
+      </div>
+
+      <div class="ostatok-grid">
+        <div class="ostatok-card">
+          <div class="ostatok-label">Касса 1</div>
+          <input type="number" id="ostatok-k1" placeholder="0.00" step="0.01" oninput="calc()">
+        </div>
+        <div class="ostatok-card">
+          <div class="ostatok-label">Касса 2</div>
+          <input type="number" id="ostatok-k2" placeholder="0.00" step="0.01" oninput="calc()">
+        </div>
+      </div>
+
+      <div class="ostatok-check" id="ostatok-check">
+        <span class="lbl">Сумма остатков К1 + К2</span>
+        <span class="val" id="ostatok-sum">0,00 €</span>
+      </div>
+      <div style="text-align:right;font-size:12px;color:var(--text3);margin-top:6px" id="ostatok-diff-label"></div>
+    </div>
+
+    <!-- 1С -->
+    <div class="section">
+      <div class="section-title">🖥 Данные из 1С</div>
+
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Нал по 1С</div>
+      <div id="onec-nal-list"></div>
+      <div class="z-total" id="onec-nal-total-row">
+        <span>Итого нал 1С</span>
+        <strong id="onec-nal-total-val">0,00 €</strong>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="addOnecNal()" style="margin-bottom:14px">+ Добавить</button>
+
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Терминал по 1С</div>
+      <div id="onec-terminal-list"></div>
+      <div class="z-total" id="onec-terminal-total-row">
+        <span>Итого терминал 1С</span>
+        <strong id="onec-terminal-total-val">0,00 €</strong>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="addOnecTerminal()">+ Добавить</button>
+
+      <div class="divider"></div>
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:600;">Расхождения (нал по Z − 1С)</div>
+      <div class="diff-row">
+        <span class="lbl">Нал (Z − 1С)</span>
+        <span id="diff-nal">—</span>
+      </div>
+      <div class="diff-row">
+        <span class="lbl">Терминал</span>
+        <span id="diff-terminal">—</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TAB: ИСТОРИЯ -->
+  <div id="view-history" style="display:none">
+    <div id="history-list"></div>
+  </div>
+
+</div>
+
+<!-- SAVE BAR -->
+<div class="save-bar">
+  <div class="save-bar-info" id="save-info">Введите данные за день</div>
+  <button class="btn btn-primary" onclick="saveEntry()">💾 Сохранить день</button>
+</div>
+
+<!-- MODAL: РКО СПРАВОЧНИК -->
+<div class="modal-overlay" id="modal-rko-ref">
+  <div class="modal">
+    <div class="modal-title">📋 Справочник РКО</div>
+    <div id="rko-ref-list"></div>
+    <div class="field" style="margin-top:12px">
+      <label>Новый вид РКО</label>
+      <input type="text" id="new-rko-name" placeholder="Например: Хозтовары"
+        style="width:100%;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius3);padding:9px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;"
+        onkeydown="if(event.key==='Enter')addRkoRef()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-rko-ref')">Закрыть</button>
+      <button class="btn btn-primary" onclick="addRkoRef()">+ Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ПРОСМОТР ДНЯ -->
+<div class="modal-overlay" id="modal-view-day">
+  <div class="modal">
+    <div class="modal-title" id="view-day-title">—</div>
+    <div id="view-day-content"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="deleteEntry()">Удалить</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-view-day')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let data = JSON.parse(localStorage.getItem('kassa_data2') || '{"entries":[],"rkoRef":[]}');
+if (!data.rkoRef) data.rkoRef = [];
+
+let zCount = 0, rkoCount = 0, onecNalCount = 0, onecTerminalCount = 0;
+let viewingDate = null;
+
+function init() {
+  const today = new Date();
+  document.getElementById('entry-date').value = today.toISOString().slice(0,10);
+  addZ(); addZ();
+  addRko();
+  addOnecNal();
+  addOnecTerminal();
+  loadPrevOstatok();
+  renderRkoRef();
+  updateSaveInfo();
+}
+
+// TABS
+function showTab(t) {
+  document.getElementById('view-new').style.display = t==='new' ? '' : 'none';
+  document.getElementById('view-history').style.display = t==='history' ? '' : 'none';
+  document.getElementById('tab-history-btn').style.display = t==='history' ? 'none' : '';
+  document.getElementById('tab-new-btn').style.display = t==='history' ? '' : 'none';
+  // Дата видна только в режиме ввода
+  document.getElementById('header-date-row').style.display = t==='new' ? '' : 'none';
+  if (t==='history') renderHistory();
+}
+
+function goToday() {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('entry-date').value = today;
+  onDateChange();
+}
+
+// Z-ОТЧЁТЫ
+function addZ() {
+  zCount++;
+  const id = `z-${zCount}`;
+  const div = document.createElement('div');
+  div.className = 'z-item';
+  div.id = id;
+  div.innerHTML = `
+    <input type="number" placeholder="Сумма Z-отчёта" step="0.01" oninput="calc()" class="z-inp">
+    <button class="btn btn-secondary btn-icon" onclick="removeEl('${id}');calc()">✕</button>
+  `;
+  document.getElementById('z-list').appendChild(div);
+  calc();
+}
+
+function getZTotal() {
+  let s = 0;
+  document.querySelectorAll('.z-inp').forEach(i => s += parseFloat(i.value)||0);
+  return s;
+}
+
+function getZValues() {
+  return Array.from(document.querySelectorAll('.z-inp')).map(i => parseFloat(i.value)||0).filter(v=>v>0);
+}
+
+// РКО
+function addRko() {
+  rkoCount++;
+  const id = `rko-${rkoCount}`;
+  const div = document.createElement('div');
+  div.className = 'rko-item';
+  div.id = id;
+  div.innerHTML = `
+    <select class="rko-select rko-sel" onchange="calc()">
+      <option value="">— Вид РКО —</option>
+      ${data.rkoRef.map(r=>`<option value="${r}">${r}</option>`).join('')}
+    </select>
+    <input type="number" class="rko-amount rko-amt" placeholder="0.00" step="0.01" oninput="calc()">
+    <button class="btn btn-secondary btn-icon" onclick="removeEl('${id}');calc()">✕</button>
+  `;
+  document.getElementById('rko-list').appendChild(div);
+}
+
+function getRkoTotal() {
+  let s = 0;
+  document.querySelectorAll('.rko-amt').forEach(i => s += parseFloat(i.value)||0);
+  return s;
+}
+
+function getRkoItems() {
+  const items = [];
+  const sels = document.querySelectorAll('.rko-sel');
+  const amts = document.querySelectorAll('.rko-amt');
+  sels.forEach((s,i) => {
+    if (s.value && amts[i] && parseFloat(amts[i].value)>0)
+      items.push({name:s.value, amount:parseFloat(amts[i].value)||0});
+  });
+  return items;
+}
+
+// ПРЕДЫДУЩИЙ ОСТАТОК — берём последнюю сохранённую запись до выбранной даты
+function getPrevOstatok() {
+  const date = document.getElementById('entry-date').value;
+  if (!date || !data.entries.length) return 0;
+  // Ищем все записи, дата которых строго раньше текущей
+  const earlier = data.entries.filter(e => e.date < date);
+  if (!earlier.length) return 0;
+  // Берём самую последнюю из них
+  earlier.sort((a, b) => b.date.localeCompare(a.date));
+  const prev = earlier[0];
+  return (prev.ostatokK1||0) + (prev.ostatokK2||0);
+}
+
+// Возвращает дату предыдущей найденной записи (для отображения)
+function getPrevOstatokDate() {
+  const date = document.getElementById('entry-date').value;
+  if (!date || !data.entries.length) return null;
+  const earlier = data.entries.filter(e => e.date < date);
+  if (!earlier.length) return null;
+  earlier.sort((a, b) => b.date.localeCompare(a.date));
+  return earlier[0].date;
+}
+
+function loadPrevOstatok() {
+  const amount = getPrevOstatok();
+  const prevDate = getPrevOstatokDate();
+  const el = document.getElementById('prev-ostatok-show');
+  el.textContent = fmt(amount);
+  // Показываем подсказку — за какой день взят остаток
+  const hintEl = document.getElementById('prev-ostatok-hint');
+  if (hintEl) {
+    if (prevDate) {
+      const d = new Date(prevDate + 'T00:00:00');
+      hintEl.textContent = 'перенос с ' + d.toLocaleDateString('ru-RU', {day:'numeric', month:'long'});
+      hintEl.style.color = 'var(--accent)';
+    } else {
+      hintEl.textContent = 'нет предыдущих записей';
+      hintEl.style.color = 'var(--text3)';
+    }
+  }
+}
+
+// При смене даты — очищаем форму и подгружаем нужный остаток
+function onDateChange() {
+  const date = document.getElementById('entry-date').value;
+  if (!date) return;
+
+  // Если за эту дату уже есть запись — загружаем её
+  const existing = data.entries.find(e => e.date === date);
+  if (existing) {
+    loadEntry(existing);
+    toast('Загружена запись за этот день');
+    return;
+  }
+
+  // Иначе — очищаем форму
+  resetForm();
+  loadPrevOstatok();
+  updateSaveInfo();
+}
+
+function resetForm() {
+  // Очищаем Z-отчёты
+  document.getElementById('z-list').innerHTML = '';
+  zCount = 0;
+  addZ(); addZ();
+
+  // Очищаем поля
+  ['terminal','nal-fact','izlishek','ostatok-k1','ostatok-k2']
+    .forEach(id => document.getElementById(id).value = '');
+
+  // Очищаем РКО
+  document.getElementById('rko-list').innerHTML = '';
+  rkoCount = 0;
+  addRko();
+
+  // Очищаем 1С
+  document.getElementById('onec-nal-list').innerHTML = '';
+  onecNalCount = 0;
+  addOnecNal();
+  document.getElementById('onec-terminal-list').innerHTML = '';
+  onecTerminalCount = 0;
+  addOnecTerminal();
+
+  calc();
+}
+
+function loadEntry(e) {
+  // Z-отчёты
+  document.getElementById('z-list').innerHTML = '';
+  zCount = 0;
+  (e.zReports||[]).forEach(v => {
+    addZ();
+    const inputs = document.querySelectorAll('.z-inp');
+    inputs[inputs.length-1].value = v;
+  });
+  if (!e.zReports?.length) { addZ(); addZ(); }
+
+  // Поля
+  document.getElementById('terminal').value = e.terminal||'';
+  document.getElementById('nal-fact').value = e.nalFact||'';
+  document.getElementById('izlishek').value = e.izlishek||'';
+  document.getElementById('ostatok-k1').value = e.ostatokK1||'';
+  document.getElementById('ostatok-k2').value = e.ostatokK2||'';
+
+  // РКО
+  document.getElementById('rko-list').innerHTML = '';
+  rkoCount = 0;
+  (e.rko||[]).forEach(r => {
+    addRko();
+    const sels = document.querySelectorAll('.rko-sel');
+    const amts = document.querySelectorAll('.rko-amt');
+    sels[sels.length-1].value = r.name;
+    amts[amts.length-1].value = r.amount;
+  });
+  if (!e.rko?.length) addRko();
+
+  // 1С нал
+  document.getElementById('onec-nal-list').innerHTML = '';
+  onecNalCount = 0;
+  const nalVals = e.onecNalValues && e.onecNalValues.length ? e.onecNalValues : (e.onecNal ? [e.onecNal] : []);
+  nalVals.forEach(v => { addOnecNal(); const inps = document.querySelectorAll('.onec-nal-inp'); inps[inps.length-1].value = v; });
+  if (!nalVals.length) addOnecNal();
+
+  // 1С терминал
+  document.getElementById('onec-terminal-list').innerHTML = '';
+  onecTerminalCount = 0;
+  const termVals = e.onecTerminalValues && e.onecTerminalValues.length ? e.onecTerminalValues : (e.onecTerminal ? [e.onecTerminal] : []);
+  termVals.forEach(v => { addOnecTerminal(); const inps = document.querySelectorAll('.onec-terminal-inp'); inps[inps.length-1].value = v; });
+  if (!termVals.length) addOnecTerminal();
+
+  loadPrevOstatok();
+  calc();
+}
+
+// 1С — НАЛ
+function addOnecNal() {
+  onecNalCount++;
+  const id = `onec-nal-${onecNalCount}`;
+  const div = document.createElement('div');
+  div.className = 'z-item';
+  div.id = id;
+  div.innerHTML = `
+    <input type="number" placeholder="Сумма" step="0.01" oninput="calc()" class="onec-nal-inp">
+    <button class="btn btn-secondary btn-icon" onclick="removeEl('${id}');calc()">✕</button>
+  `;
+  document.getElementById('onec-nal-list').appendChild(div);
+  calc();
+}
+
+function getOnecNalTotal() {
+  let s = 0;
+  document.querySelectorAll('.onec-nal-inp').forEach(i => s += parseFloat(i.value)||0);
+  return s;
+}
+
+function getOnecNalValues() {
+  return Array.from(document.querySelectorAll('.onec-nal-inp')).map(i => parseFloat(i.value)||0).filter(v=>v>0);
+}
+
+// 1С — ТЕРМИНАЛ
+function addOnecTerminal() {
+  onecTerminalCount++;
+  const id = `onec-terminal-${onecTerminalCount}`;
+  const div = document.createElement('div');
+  div.className = 'z-item';
+  div.id = id;
+  div.innerHTML = `
+    <input type="number" placeholder="Сумма" step="0.01" oninput="calc()" class="onec-terminal-inp">
+    <button class="btn btn-secondary btn-icon" onclick="removeEl('${id}');calc()">✕</button>
+  `;
+  document.getElementById('onec-terminal-list').appendChild(div);
+  calc();
+}
+
+function getOnecTerminalTotal() {
+  let s = 0;
+  document.querySelectorAll('.onec-terminal-inp').forEach(i => s += parseFloat(i.value)||0);
+  return s;
+}
+
+function getOnecTerminalValues() {
+  return Array.from(document.querySelectorAll('.onec-terminal-inp')).map(i => parseFloat(i.value)||0).filter(v=>v>0);
+}
+
+// CALC
+function calc() {
+  const zTotal = getZTotal();
+  const terminal = parseFloat(document.getElementById('terminal').value)||0;
+  const nalFact = parseFloat(document.getElementById('nal-fact').value)||0;
+  const izlishek = parseFloat(document.getElementById('izlishek').value)||0;
+  const rkoTotal = getRkoTotal();
+  const prevOst = getPrevOstatok();
+  const k1 = parseFloat(document.getElementById('ostatok-k1').value)||0;
+  const k2 = parseFloat(document.getElementById('ostatok-k2').value)||0;
+  const onecNal = getOnecNalTotal();
+  const onecTerminal = getOnecTerminalTotal();
+
+  // Z total
+  document.getElementById('z-total-val').textContent = fmt(zTotal);
+
+  // Нал по Z
+  const nalCalc = zTotal - terminal;
+  document.getElementById('nal-calc').textContent = fmt(nalCalc);
+
+  // РКО итого
+  document.getElementById('rko-total').textContent = fmt(rkoTotal);
+
+  // Итого 1С
+  document.getElementById('onec-nal-total-val').textContent = fmt(onecNal);
+  document.getElementById('onec-terminal-total-val').textContent = fmt(onecTerminal);
+
+  // Расчётный остаток = предыдущий + нал по Z - РКО + излишек
+  // (фактический нал уже за вычетом РКО, поэтому РКО вычитаем из нала по Z)
+  const ostatokCalc = prevOst + nalCalc - rkoTotal + izlishek;
+  document.getElementById('ostatok-calc').textContent = fmt(ostatokCalc);
+
+  // Сумма остатков по кассам
+  const ostatokSum = k1 + k2;
+  document.getElementById('ostatok-sum').textContent = fmt(ostatokSum);
+
+  const diff = ostatokSum - ostatokCalc;
+  const checkEl = document.getElementById('ostatok-check');
+  const diffLabel = document.getElementById('ostatok-diff-label');
+
+  if (k1 || k2) {
+    const ok = Math.abs(diff) < 0.01;
+    checkEl.className = 'ostatok-check ' + (ok ? 'ok' : 'fail');
+    document.getElementById('ostatok-sum').style.color = ok ? 'var(--green)' : 'var(--red)';
+    diffLabel.textContent = ok ? '✓ Остатки сходятся' : `Расхождение: ${(diff>=0?'+':'')+fmt(diff)}`;
+    diffLabel.style.color = ok ? 'var(--green)' : 'var(--red)';
+  } else {
+    checkEl.className = 'ostatok-check';
+    document.getElementById('ostatok-sum').style.color = '';
+    diffLabel.textContent = '';
+  }
+
+  // 1С расхождения (нал по Z vs 1С, а не фактический нал)
+  setDiff('diff-nal', nalCalc - onecNal, onecNal);
+  setDiff('diff-terminal', terminal - onecTerminal, onecTerminal);
+
+  updateSaveInfo();
+}
+
+function setDiff(id, diff, base) {
+  const el = document.getElementById(id);
+  if (!base) { el.textContent = '—'; el.className=''; return; }
+  el.textContent = (diff>=0?'+':'') + fmt(diff);
+  el.className = Math.abs(diff)<0.01 ? 'val-green' : 'val-red';
+}
+
+function updateSaveInfo() {
+  const date = document.getElementById('entry-date').value;
+  if (date) {
+    const d = new Date(date+'T00:00:00');
+    document.getElementById('save-info').textContent =
+      d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+  }
+}
+
+// SAVE
+function saveEntry() {
+  const date = document.getElementById('entry-date').value;
+  if (!date) { toast('Укажите дату'); return; }
+
+  const entry = {
+    date,
+    zReports: getZValues(),
+    zTotal: getZTotal(),
+    terminal: parseFloat(document.getElementById('terminal').value)||0,
+    nalFact: parseFloat(document.getElementById('nal-fact').value)||0,
+    izlishek: parseFloat(document.getElementById('izlishek').value)||0,
+    rko: getRkoItems(),
+    rkoTotal: getRkoTotal(),
+    prevOstatok: getPrevOstatok(),
+    ostatokK1: parseFloat(document.getElementById('ostatok-k1').value)||0,
+    ostatokK2: parseFloat(document.getElementById('ostatok-k2').value)||0,
+    onecNalValues: getOnecNalValues(),
+    onecNal: getOnecNalTotal(),
+    onecTerminalValues: getOnecTerminalValues(),
+    onecTerminal: getOnecTerminalTotal(),
+  };
+
+  const idx = data.entries.findIndex(e => e.date === date);
+  if (idx >= 0) {
+    data.entries[idx] = entry;
+    toast('День обновлён');
+  } else {
+    data.entries.push(entry);
+    data.entries.sort((a,b) => a.date.localeCompare(b.date));
+    toast('День сохранён ✓');
+  }
+  save();
+}
+
+// HISTORY
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  if (!data.entries.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>Записей пока нет</div>`;
+    return;
+  }
+  el.innerHTML = [...data.entries].reverse().map(e => {
+    const d = new Date(e.date+'T00:00:00');
+    const label = d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+    const totalOst = (e.ostatokK1||0)+(e.ostatokK2||0);
+    const calcOst = (e.prevOstatok||0)+((e.zTotal||0)-(e.terminal||0))-(e.rkoTotal||0)+(e.izlishek||0);
+    const ok = Math.abs(totalOst-calcOst)<0.01;
+    return `
+      <div class="history-item" onclick="viewEntry('${e.date}')">
+        <div>
+          <div class="history-date">${label}</div>
+          <div class="history-meta">Z: ${fmt(e.zTotal||0)} · Нал: ${fmt(e.nalFact||0)} · Остаток: ${fmt(totalOst)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12px;${ok?'color:var(--green)':'color:var(--red)'}">${ok?'✓':'!'}</span>
+          <span style="color:var(--text3);font-size:18px">›</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function viewEntry(date) {
+  viewingDate = date;
+  const e = data.entries.find(x => x.date === date);
+  if (!e) return;
+
+  const d = new Date(date+'T00:00:00');
+  document.getElementById('view-day-title').textContent =
+    d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+
+  const nalCalc = (e.zTotal||0) - (e.terminal||0);
+  const calcOst = (e.prevOstatok||0)+nalCalc-(e.rkoTotal||0)+(e.izlishek||0);
+  const totalOst = (e.ostatokK1||0)+(e.ostatokK2||0);
+  const ostDiff = totalOst - calcOst;
+  const diffNal = nalCalc-(e.onecNal||0);
+  const diffTerm = (e.terminal||0)-(e.onecTerminal||0);
+
+  document.getElementById('view-day-content').innerHTML = `
+    <div class="result-row"><span class="lbl">Z-отчёты</span><span>${(e.zReports||[]).map(fmt).join(', ')||'—'}</span></div>
+    <div class="result-row"><span class="lbl">Итого Z</span><span>${fmt(e.zTotal)}</span></div>
+    <div class="result-row"><span class="lbl">Терминал</span><span>${fmt(e.terminal)}</span></div>
+    <div class="result-row"><span class="lbl">Нал по Z</span><span>${fmt(nalCalc)}</span></div>
+    <div class="result-row"><span class="lbl">Фактический нал</span><span>${fmt(e.nalFact)}</span></div>
+    <div class="result-row"><span class="lbl">Излишек</span><span>${fmt(e.izlishek)}</span></div>
+    ${(e.rko||[]).map(r=>`<div class="result-row"><span class="lbl">РКО: ${r.name}</span><span style="color:var(--orange)">${fmt(r.amount)}</span></div>`).join('')}
+    <div class="result-row"><span class="lbl">Итого РКО</span><span style="color:var(--orange)">${fmt(e.rkoTotal)}</span></div>
+    <div class="divider"></div>
+    <div class="result-row"><span class="lbl">Остаток нач. дня</span><span>${fmt(e.prevOstatok)}</span></div>
+    <div class="result-row"><span class="lbl">Расчётный остаток</span><span>${fmt(calcOst)}</span></div>
+    <div class="result-row"><span class="lbl">Касса 1</span><span>${fmt(e.ostatokK1)}</span></div>
+    <div class="result-row"><span class="lbl">Касса 2</span><span>${fmt(e.ostatokK2)}</span></div>
+    <div class="result-row"><span class="lbl">К1 + К2</span><span class="${Math.abs(ostDiff)<0.01?'val-green':'val-red'}">${fmt(totalOst)}</span></div>
+    <div class="result-row"><span class="lbl">Расхождение остатка</span><span class="${Math.abs(ostDiff)<0.01?'val-green':'val-red'}">${(ostDiff>=0?'+':'')+fmt(ostDiff)}</span></div>
+    <div class="divider"></div>
+    <div class="result-row"><span class="lbl">Нал (факт − 1С)</span><span class="${Math.abs(diffNal)<0.01?'val-green':'val-red'}">${(diffNal>=0?'+':'')+fmt(diffNal)}</span></div>
+    <div class="result-row"><span class="lbl">Терминал (факт − 1С)</span><span class="${Math.abs(diffTerm)<0.01?'val-green':'val-red'}">${(diffTerm>=0?'+':'')+fmt(diffTerm)}</span></div>
+  `;
+
+  document.getElementById('modal-view-day').classList.add('open');
+}
+
+function deleteEntry() {
+  if (!viewingDate) return;
+  if (!confirm('Удалить запись?')) return;
+  data.entries = data.entries.filter(e => e.date !== viewingDate);
+  save();
+  closeModal('modal-view-day');
+  renderHistory();
+  toast('Удалено');
+}
+
+// РКО СПРАВОЧНИК
+function openRkoRef() {
+  renderRkoRef();
+  document.getElementById('modal-rko-ref').classList.add('open');
+}
+
+function renderRkoRef() {
+  const el = document.getElementById('rko-ref-list');
+  if (!data.rkoRef.length) {
+    el.innerHTML = `<div style="color:var(--text3);font-size:13px;margin-bottom:8px">Список пуст. Добавьте виды РКО.</div>`;
+    return;
+  }
+  el.innerHTML = data.rkoRef.map((r,i) => `
+    <div class="rko-ref-item">
+      <span>${r}</span>
+      <button class="btn btn-danger btn-icon btn-sm" onclick="removeRkoRef(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function addRkoRef() {
+  const inp = document.getElementById('new-rko-name');
+  const name = inp.value.trim();
+  if (!name) return;
+  if (data.rkoRef.includes(name)) { toast('Уже есть'); return; }
+  data.rkoRef.push(name);
+  inp.value = '';
+  save();
+  renderRkoRef();
+  refreshRkoSelects();
+  toast('Добавлено');
+}
+
+function removeRkoRef(i) {
+  data.rkoRef.splice(i,1);
+  save();
+  renderRkoRef();
+  refreshRkoSelects();
+}
+
+function refreshRkoSelects() {
+  document.querySelectorAll('.rko-sel').forEach(sel => {
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">— Вид РКО —</option>` +
+      data.rkoRef.map(r=>`<option value="${r}" ${r===cur?'selected':''}>${r}</option>`).join('');
+  });
+}
+
+// UTILS
+function fmt(n) {
+  return (parseFloat(n)||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+}
+function removeEl(id) { const el=document.getElementById(id); if(el)el.remove(); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function save() { localStorage.setItem('kassa_data2', JSON.stringify(data)); }
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2000);
+}
+
+init();
+</script>
+</body>
+</html>
