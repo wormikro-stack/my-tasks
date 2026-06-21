@@ -1697,6 +1697,9 @@ async function syncOnStartup(token) {
       localStorage.setItem('todo_categories', JSON.stringify(categories));
       localStorage.setItem('services_data', JSON.stringify(svcData));
       localStorage.setItem('last_saved_at', cloudDate);
+      if (cloudData.kassaData) {
+        localStorage.setItem('kassa_data2', JSON.stringify(cloudData.kassaData));
+      }
     }
   } catch(e) {
     // тихо игнорируем — работаем офлайн
@@ -1715,7 +1718,8 @@ async function _doAutoSave() {
   if (!token) return;
   try {
     const now = new Date().toISOString();
-    const payload = { todos, templates, categories, svcData, savedAt: now };
+    const kassaData = JSON.parse(localStorage.getItem('kassa_data2') || '{"entries":[],"rkoRef":[]}');
+    const payload = { todos, templates, categories, svcData, kassaData, savedAt: now };
     const response = await fetch(GIST_URL, {
       method: 'PATCH',
       headers: {
@@ -1849,6 +1853,9 @@ async function loadFromCloud() {
     localStorage.setItem('todo_categories', JSON.stringify(categories));
     localStorage.setItem('services_data', JSON.stringify(svcData));
     localStorage.setItem('last_saved_at', data.savedAt || '');
+    if (data.kassaData) {
+      localStorage.setItem('kassa_data2', JSON.stringify(data.kassaData));
+    }
     render();
     closeModal('modalSync');
     showToast('✓ Данные загружены из облака!');
