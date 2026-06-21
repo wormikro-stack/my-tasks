@@ -409,6 +409,7 @@
     <div class="header-actions">
       <button class="btn btn-secondary btn-sm" onclick="window.location.href='index.html'">← Задания</button>
       <button class="btn btn-secondary btn-sm" onclick="openRkoRef()">📋 РКО</button>
+      <button class="btn btn-secondary btn-sm" onclick="showTab('stats')" id="tab-stats-btn">📊 Статистика</button>
       <button class="btn btn-secondary btn-sm" onclick="showTab('history')" id="tab-history-btn">🕐 История</button>
       <button class="btn btn-secondary btn-sm" onclick="showTab('new')" id="tab-new-btn" style="display:none">✏️ Ввод</button>
     </div>
@@ -548,6 +549,29 @@
     <div id="history-list"></div>
   </div>
 
+  <!-- TAB: СТАТИСТИКА -->
+  <div id="view-stats" style="display:none">
+    <div class="section">
+      <div class="section-title">📊 Период</div>
+      <div style="display:flex; gap:10px;">
+        <div class="field" style="flex:1; margin-bottom:0;">
+          <label>С</label>
+          <input type="date" id="stats-from" onchange="calcStats()">
+        </div>
+        <div class="field" style="flex:1; margin-bottom:0;">
+          <label>По</label>
+          <input type="date" id="stats-to" onchange="calcStats()">
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="stats-summary"></div>
+
+    <div class="section" id="stats-days-section">
+      <div id="stats-days-list"></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- SAVE BAR -->
@@ -627,6 +651,7 @@ function onShopChange() {
   localStorage.setItem('kassa_current_shop', getShop());
   updateShopUI();
   onDateChange();
+  calcStats();
 }
 
 // Магазин К1 — только одна касса, прячем вторую карточку и меняем подписи
@@ -645,11 +670,17 @@ function updateShopUI() {
 function showTab(t) {
   document.getElementById('view-new').style.display = t==='new' ? '' : 'none';
   document.getElementById('view-history').style.display = t==='history' ? '' : 'none';
+  document.getElementById('view-stats').style.display = t==='stats' ? '' : 'none';
+
+  document.getElementById('tab-new-btn').style.display = t==='new' ? 'none' : '';
   document.getElementById('tab-history-btn').style.display = t==='history' ? 'none' : '';
-  document.getElementById('tab-new-btn').style.display = t==='history' ? '' : 'none';
+  document.getElementById('tab-stats-btn').style.display = t==='stats' ? 'none' : '';
+
   // Дата видна только в режиме ввода
   document.getElementById('header-date-row').style.display = t==='new' ? '' : 'none';
+
   if (t==='history') renderHistory();
+  if (t==='stats') initStatsTab();
 }
 
 function goToday() {
@@ -1017,6 +1048,84 @@ function saveEntry() {
     toast('День сохранён ✓');
   }
   save();
+}
+
+// СТАТИСТИКА ЗА ПЕРИОД
+function initStatsTab() {
+  const fromEl = document.getElementById('stats-from');
+  const toEl = document.getElementById('stats-to');
+  // По умолчанию — текущий месяц, но только если период ещё не выбран
+  if (!fromEl.value || !toEl.value) {
+    const today = new Date();
+    const first = new Date(today.getFullYear(), today.getMonth(), 1);
+    fromEl.value = first.toISOString().slice(0,10);
+    toEl.value = today.toISOString().slice(0,10);
+  }
+  calcStats();
+}
+
+function calcStats() {
+  const summaryEl = document.getElementById('stats-summary');
+  const daysEl = document.getElementById('stats-days-list');
+  const fromEl = document.getElementById('stats-from');
+  const toEl = document.getElementById('stats-to');
+  if (!summaryEl || !daysEl || !fromEl || !toEl) return;
+
+  const from = fromEl.value;
+  const to = toEl.value;
+  const shop = getShop();
+
+  if (!from || !to) {
+    summaryEl.innerHTML = `<div class="section-title">📌 Итого за период</div><div style="color:var(--text3);font-size:13px">Выберите даты «с» и «по»</div>`;
+    daysEl.innerHTML = '';
+    return;
+  }
+
+  const entries = data.entries
+    .filter(e => (e.shop||'К3') === shop && e.date >= from && e.date <= to)
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  if (!entries.length) {
+    summaryEl.innerHTML = `<div class="section-title">📌 Итого за период</div><div style="color:var(--text3);font-size:13px">За выбранный период записей нет</div>`;
+    daysEl.innerHTML = '';
+    return;
+  }
+
+  let sumDiffNal = 0, sumDiffTerm = 0;
+  const rows = entries.map(e => {
+    const nalCalc = (e.zTotal||0) - (e.terminal||0);
+    const diffNal = nalCalc - (e.onecNal||0);
+    const diffTerm = (e.terminal||0) - (e.onecTerminal||0);
+    sumDiffNal += diffNal;
+    sumDiffTerm += diffTerm;
+    const d = new Date(e.date+'T00:00:00');
+    const label = d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+    return `
+      <div class="diff-row">
+        <span class="lbl">${label}</span>
+        <span>
+          <span class="${Math.abs(diffNal)<0.01?'':'val-red'}">${(diffNal>=0?'+':'')+fmt(diffNal)}</span>
+          &nbsp;/&nbsp;
+          <span class="${Math.abs(diffTerm)<0.01?'':'val-red'}">${(diffTerm>=0?'+':'')+fmt(diffTerm)}</span>
+        </span>
+      </div>
+    `;
+  }).join('');
+
+  summaryEl.innerHTML = `
+    <div class="section-title">📌 Итого за период · ${shop} · ${entries.length} дн.</div>
+    <div class="computed-row" style="border-top:none;padding-top:0">
+      <span class="label">Нал (Z − 1С)</span>
+      <span class="value ${Math.abs(sumDiffNal)<0.01?'val-green':'val-red'}">${(sumDiffNal>=0?'+':'')+fmt(sumDiffNal)}</span>
+    </div>
+    <div class="computed-row">
+      <span class="label">Терминал (факт − 1С)</span>
+      <span class="value ${Math.abs(sumDiffTerm)<0.01?'val-green':'val-red'}">${(sumDiffTerm>=0?'+':'')+fmt(sumDiffTerm)}</span>
+    </div>
+  `;
+
+  daysEl.innerHTML =
+    `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:600;">По дням (нал / терминал)</div>` + rows;
 }
 
 // HISTORY
