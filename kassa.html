@@ -391,6 +391,7 @@
       <div class="header-title">Касса</div>
     </div>
     <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" onclick="window.location.href='index.html'">← Задания</button>
       <button class="btn btn-secondary btn-sm" onclick="openRkoRef()">📋 РКО</button>
       <button class="btn btn-secondary btn-sm" onclick="showTab('history')" id="tab-history-btn">🕐 История</button>
       <button class="btn btn-secondary btn-sm" onclick="showTab('new')" id="tab-new-btn" style="display:none">✏️ Ввод</button>
@@ -564,6 +565,12 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div id="syncIndicatorKassa" style="
+  position:fixed; bottom:28px; right:20px;
+  font-size:11px; color:var(--text3);
+  opacity:0; transition:opacity 0.4s;
+  pointer-events:none; z-index:999;
+"></div>
 
 <script>
 let data = JSON.parse(localStorage.getItem('kassa_data2') || '{"entries":[],"rkoRef":[]}');
@@ -1088,14 +1095,111 @@ function fmt(n) {
 }
 function removeEl(id) { const el=document.getElementById(id); if(el)el.remove(); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function save() { localStorage.setItem('kassa_data2', JSON.stringify(data)); }
+function save() { localStorage.setItem('kassa_data2', JSON.stringify(data)); autoSaveToCloud(); }
+
+// ==========================================
+// GITHUB GIST СИНХРОНИЗАЦИЯ (общий Gist с index.html)
+// ==========================================
+const GIST_ID = '4586ad4369f06a422ecf842e8df5b78b';
+const GIST_URL = `https://api.github.com/gists/${GIST_ID}`;
+const GIST_FILENAME = 'data.json';
+
+// --- Стартовая синхронизация: если в облаке данные новее — подтягиваем ---
+async function syncOnStartupKassa() {
+  const token = localStorage.getItem('github_token');
+  if (!token) return; // токен не введён (входили только через index.html?) — работаем офлайн
+  try {
+    const response = await fetch(GIST_URL, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    });
+    if (!response.ok) return;
+
+    const gist = await response.json();
+    const raw = gist.files?.[GIST_FILENAME]?.content;
+    if (!raw) return;
+
+    const cloudData = JSON.parse(raw);
+    const cloudDate = cloudData.savedAt || '';
+    const localDate = localStorage.getItem('last_saved_at') || '';
+
+    if (cloudDate > localDate) {
+      // Облако новее — тихо подтягиваем всё, включая данные кассы
+      if (cloudData.todos) localStorage.setItem('todo_items', JSON.stringify(cloudData.todos));
+      if (cloudData.templates) localStorage.setItem('todo_templates', JSON.stringify(cloudData.templates));
+      if (cloudData.categories) localStorage.setItem('todo_categories', JSON.stringify(cloudData.categories));
+      if (cloudData.svcData) localStorage.setItem('services_data', JSON.stringify(cloudData.svcData));
+      if (cloudData.kassaData) {
+        data = cloudData.kassaData;
+        if (!data.rkoRef) data.rkoRef = [];
+        localStorage.setItem('kassa_data2', JSON.stringify(data));
+      }
+      localStorage.setItem('last_saved_at', cloudDate);
+    }
+  } catch(e) {
+    // тихо игнорируем — работаем офлайн
+  }
+}
+
+// --- Авто-сохранение в облако (с дебаунсом 2 сек) ---
+let _autoSaveTimerKassa = null;
+function autoSaveToCloud() {
+  clearTimeout(_autoSaveTimerKassa);
+  _autoSaveTimerKassa = setTimeout(_doAutoSaveKassa, 2000);
+}
+
+async function _doAutoSaveKassa() {
+  const token = localStorage.getItem('github_token');
+  if (!token) return;
+  try {
+    const now = new Date().toISOString();
+    // Подтягиваем остальные разделы как есть, чтобы их не затереть — меняем только kassaData
+    const todos = JSON.parse(localStorage.getItem('todo_items') || '[]');
+    const templates = JSON.parse(localStorage.getItem('todo_templates') || '[]');
+    const categories = JSON.parse(localStorage.getItem('todo_categories') || 'null') || [];
+    const svcData = JSON.parse(localStorage.getItem('services_data') || 'null') || { months: [] };
+    const payload = { todos, templates, categories, svcData, kassaData: data, savedAt: now };
+
+    const response = await fetch(GIST_URL, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      },
+      body: JSON.stringify({
+        files: { [GIST_FILENAME]: { content: JSON.stringify(payload, null, 2) } }
+      })
+    });
+    if (response.ok) {
+      localStorage.setItem('last_saved_at', now);
+      showSyncIndicatorKassa();
+    }
+  } catch(e) {
+    // тихо — нет интернета, не страшно
+  }
+}
+
+function showSyncIndicatorKassa() {
+  const el = document.getElementById('syncIndicatorKassa');
+  if (!el) return;
+  el.textContent = '☁️ Сохранено';
+  el.style.opacity = '1';
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => { el.style.opacity = '0'; }, 2000);
+}
 function toast(msg) {
   const el=document.getElementById('toast');
   el.textContent=msg; el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'),2000);
 }
 
-init();
+(async function(){
+  await syncOnStartupKassa();
+  init();
+})();
 </script>
 </body>
 </html>
