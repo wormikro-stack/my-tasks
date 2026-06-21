@@ -93,6 +93,22 @@
     min-width:0;
   }
   .header-date-input:focus { border-color:var(--accent); }
+  .header-shop-select {
+    width:62px; flex-shrink:0;
+    background:var(--glass2);
+    border:1px solid var(--glass-border);
+    border-radius:980px;
+    padding:8px 4px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:13px; font-weight:600;
+    outline:none;
+    cursor:pointer;
+    text-align:center; text-align-last:center;
+    transition:border-color 0.18s;
+  }
+  .header-shop-select:focus { border-color:var(--accent); }
+  .header-shop-select option { background:#1a1a2e; }
 
   .btn {
     display:inline-flex; align-items:center; justify-content:center; gap:6px;
@@ -397,9 +413,15 @@
       <button class="btn btn-secondary btn-sm" onclick="showTab('new')" id="tab-new-btn" style="display:none">✏️ Ввод</button>
     </div>
   </div>
-  <div class="header-row2" id="header-date-row">
-    <input type="date" class="header-date-input" id="entry-date" onchange="onDateChange()">
-    <button class="btn btn-secondary btn-icon" onclick="goToday()" title="Сегодня">📅</button>
+  <div class="header-row2">
+    <select class="header-shop-select" id="shop-select" onchange="onShopChange()">
+      <option value="К3">К3</option>
+      <option value="К1">К1</option>
+    </select>
+    <div id="header-date-row" style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+      <input type="date" class="header-date-input" id="entry-date" onchange="onDateChange()">
+      <button class="btn btn-secondary btn-icon" onclick="goToday()" title="Сегодня">📅</button>
+    </div>
   </div>
 </div>
 
@@ -469,19 +491,19 @@
         <span class="value" id="ostatok-calc">0,00 €</span>
       </div>
 
-      <div class="ostatok-grid">
+      <div class="ostatok-grid" id="ostatok-grid">
         <div class="ostatok-card">
-          <div class="ostatok-label">Касса 1</div>
+          <div class="ostatok-label" id="ostatok-k1-label">Касса 1</div>
           <input type="number" id="ostatok-k1" placeholder="0.00" step="0.01" oninput="calc()">
         </div>
-        <div class="ostatok-card">
+        <div class="ostatok-card" id="ostatok-k2-card">
           <div class="ostatok-label">Касса 2</div>
           <input type="number" id="ostatok-k2" placeholder="0.00" step="0.01" oninput="calc()">
         </div>
       </div>
 
       <div class="ostatok-check" id="ostatok-check">
-        <span class="lbl">Сумма остатков К1 + К2</span>
+        <span class="lbl" id="ostatok-check-label">Сумма остатков К1 + К2</span>
         <span class="val" id="ostatok-sum">0,00 €</span>
       </div>
       <div style="text-align:right;font-size:12px;color:var(--text3);margin-top:6px" id="ostatok-diff-label"></div>
@@ -578,8 +600,13 @@ if (!data.rkoRef) data.rkoRef = [];
 
 let zCount = 0, rkoCount = 0, onecNalCount = 0, onecTerminalCount = 0;
 let viewingDate = null;
+let viewingShop = null;
 
 function init() {
+  const savedShop = localStorage.getItem('kassa_current_shop') || 'К3';
+  document.getElementById('shop-select').value = savedShop;
+  updateShopUI();
+
   const today = new Date();
   document.getElementById('entry-date').value = today.toISOString().slice(0,10);
   addZ(); addZ();
@@ -589,6 +616,29 @@ function init() {
   loadPrevOstatok();
   renderRkoRef();
   updateSaveInfo();
+}
+
+// МАГАЗИН
+function getShop() {
+  return document.getElementById('shop-select').value;
+}
+
+function onShopChange() {
+  localStorage.setItem('kassa_current_shop', getShop());
+  updateShopUI();
+  onDateChange();
+}
+
+// Магазин К1 — только одна касса, прячем вторую карточку и меняем подписи
+function updateShopUI() {
+  const shop = getShop();
+  const single = shop === 'К1';
+  document.getElementById('ostatok-k2-card').style.display = single ? 'none' : '';
+  document.getElementById('ostatok-grid').style.gridTemplateColumns = single ? '1fr' : '1fr 1fr';
+  document.getElementById('ostatok-k1-label').textContent = single ? 'Касса' : 'Касса 1';
+  document.getElementById('ostatok-check-label').textContent = single ? 'Остаток в кассе' : 'Сумма остатков К1 + К2';
+  if (single) document.getElementById('ostatok-k2').value = '';
+  calc();
 }
 
 // TABS
@@ -668,12 +718,13 @@ function getRkoItems() {
   return items;
 }
 
-// ПРЕДЫДУЩИЙ ОСТАТОК — берём последнюю сохранённую запись до выбранной даты
+// ПРЕДЫДУЩИЙ ОСТАТОК — берём последнюю сохранённую запись до выбранной даты В ЭТОМ ЖЕ МАГАЗИНЕ
 function getPrevOstatok() {
   const date = document.getElementById('entry-date').value;
+  const shop = getShop();
   if (!date || !data.entries.length) return 0;
-  // Ищем все записи, дата которых строго раньше текущей
-  const earlier = data.entries.filter(e => e.date < date);
+  // Ищем все записи этого магазина, дата которых строго раньше текущей
+  const earlier = data.entries.filter(e => e.date < date && (e.shop||'К3') === shop);
   if (!earlier.length) return 0;
   // Берём самую последнюю из них
   earlier.sort((a, b) => b.date.localeCompare(a.date));
@@ -684,8 +735,9 @@ function getPrevOstatok() {
 // Возвращает дату предыдущей найденной записи (для отображения)
 function getPrevOstatokDate() {
   const date = document.getElementById('entry-date').value;
+  const shop = getShop();
   if (!date || !data.entries.length) return null;
-  const earlier = data.entries.filter(e => e.date < date);
+  const earlier = data.entries.filter(e => e.date < date && (e.shop||'К3') === shop);
   if (!earlier.length) return null;
   earlier.sort((a, b) => b.date.localeCompare(a.date));
   return earlier[0].date;
@@ -714,9 +766,10 @@ function loadPrevOstatok() {
 function onDateChange() {
   const date = document.getElementById('entry-date').value;
   if (!date) return;
+  const shop = getShop();
 
-  // Если за эту дату уже есть запись — загружаем её
-  const existing = data.entries.find(e => e.date === date);
+  // Если за эту дату уже есть запись в этом магазине — загружаем её
+  const existing = data.entries.find(e => e.date === date && (e.shop||'К3') === shop);
   if (existing) {
     loadEntry(existing);
     toast('Загружена запись за этот день');
@@ -932,9 +985,12 @@ function updateSaveInfo() {
 function saveEntry() {
   const date = document.getElementById('entry-date').value;
   if (!date) { toast('Укажите дату'); return; }
+  const shop = getShop();
+  const single = shop === 'К1';
 
   const entry = {
     date,
+    shop,
     zReports: getZValues(),
     zTotal: getZTotal(),
     terminal: parseFloat(document.getElementById('terminal').value)||0,
@@ -944,20 +1000,20 @@ function saveEntry() {
     rkoTotal: getRkoTotal(),
     prevOstatok: getPrevOstatok(),
     ostatokK1: parseFloat(document.getElementById('ostatok-k1').value)||0,
-    ostatokK2: parseFloat(document.getElementById('ostatok-k2').value)||0,
+    ostatokK2: single ? 0 : (parseFloat(document.getElementById('ostatok-k2').value)||0),
     onecNalValues: getOnecNalValues(),
     onecNal: getOnecNalTotal(),
     onecTerminalValues: getOnecTerminalValues(),
     onecTerminal: getOnecTerminalTotal(),
   };
 
-  const idx = data.entries.findIndex(e => e.date === date);
+  const idx = data.entries.findIndex(e => e.date === date && (e.shop||'К3') === shop);
   if (idx >= 0) {
     data.entries[idx] = entry;
     toast('День обновлён');
   } else {
     data.entries.push(entry);
-    data.entries.sort((a,b) => a.date.localeCompare(b.date));
+    data.entries.sort((a,b) => a.date.localeCompare(b.date) || (a.shop||'').localeCompare(b.shop||''));
     toast('День сохранён ✓');
   }
   save();
@@ -966,18 +1022,20 @@ function saveEntry() {
 // HISTORY
 function renderHistory() {
   const el = document.getElementById('history-list');
-  if (!data.entries.length) {
+  const shop = getShop();
+  const filtered = data.entries.filter(e => (e.shop||'К3') === shop);
+  if (!filtered.length) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>Записей пока нет</div>`;
     return;
   }
-  el.innerHTML = [...data.entries].reverse().map(e => {
+  el.innerHTML = [...filtered].reverse().map(e => {
     const d = new Date(e.date+'T00:00:00');
     const label = d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
     const totalOst = (e.ostatokK1||0)+(e.ostatokK2||0);
     const calcOst = (e.prevOstatok||0)+((e.zTotal||0)-(e.terminal||0))-(e.rkoTotal||0)+(e.izlishek||0);
     const ok = Math.abs(totalOst-calcOst)<0.01;
     return `
-      <div class="history-item" onclick="viewEntry('${e.date}')">
+      <div class="history-item" onclick="viewEntry('${e.date}','${e.shop||'К3'}')">
         <div>
           <div class="history-date">${label}</div>
           <div class="history-meta">Z: ${fmt(e.zTotal||0)} · Нал: ${fmt(e.nalFact||0)} · Остаток: ${fmt(totalOst)}</div>
@@ -991,18 +1049,20 @@ function renderHistory() {
   }).join('');
 }
 
-function viewEntry(date) {
+function viewEntry(date, shop) {
   viewingDate = date;
-  const e = data.entries.find(x => x.date === date);
+  viewingShop = shop;
+  const e = data.entries.find(x => x.date === date && (x.shop||'К3') === shop);
   if (!e) return;
 
+  const single = (e.shop||'К3') === 'К1';
   const d = new Date(date+'T00:00:00');
   document.getElementById('view-day-title').textContent =
-    d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+    d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}) + ' · ' + (e.shop||'К3');
 
   const nalCalc = (e.zTotal||0) - (e.terminal||0);
   const calcOst = (e.prevOstatok||0)+nalCalc-(e.rkoTotal||0)+(e.izlishek||0);
-  const totalOst = (e.ostatokK1||0)+(e.ostatokK2||0);
+  const totalOst = single ? (e.ostatokK1||0) : (e.ostatokK1||0)+(e.ostatokK2||0);
   const ostDiff = totalOst - calcOst;
   const diffNal = nalCalc-(e.onecNal||0);
   const diffTerm = (e.terminal||0)-(e.onecTerminal||0);
@@ -1019,9 +1079,9 @@ function viewEntry(date) {
     <div class="divider"></div>
     <div class="result-row"><span class="lbl">Остаток нач. дня</span><span>${fmt(e.prevOstatok)}</span></div>
     <div class="result-row"><span class="lbl">Расчётный остаток</span><span>${fmt(calcOst)}</span></div>
-    <div class="result-row"><span class="lbl">Касса 1</span><span>${fmt(e.ostatokK1)}</span></div>
-    <div class="result-row"><span class="lbl">Касса 2</span><span>${fmt(e.ostatokK2)}</span></div>
-    <div class="result-row"><span class="lbl">К1 + К2</span><span class="${Math.abs(ostDiff)<0.01?'val-green':'val-red'}">${fmt(totalOst)}</span></div>
+    <div class="result-row"><span class="lbl">${single?'Касса':'Касса 1'}</span><span>${fmt(e.ostatokK1)}</span></div>
+    ${single?'':`<div class="result-row"><span class="lbl">Касса 2</span><span>${fmt(e.ostatokK2)}</span></div>`}
+    <div class="result-row"><span class="lbl">${single?'Итого касса':'К1 + К2'}</span><span class="${Math.abs(ostDiff)<0.01?'val-green':'val-red'}">${fmt(totalOst)}</span></div>
     <div class="result-row"><span class="lbl">Расхождение остатка</span><span class="${Math.abs(ostDiff)<0.01?'val-green':'val-red'}">${(ostDiff>=0?'+':'')+fmt(ostDiff)}</span></div>
     <div class="divider"></div>
     <div class="result-row"><span class="lbl">Нал (факт − 1С)</span><span class="${Math.abs(diffNal)<0.01?'val-green':'val-red'}">${(diffNal>=0?'+':'')+fmt(diffNal)}</span></div>
@@ -1034,7 +1094,7 @@ function viewEntry(date) {
 function deleteEntry() {
   if (!viewingDate) return;
   if (!confirm('Удалить запись?')) return;
-  data.entries = data.entries.filter(e => e.date !== viewingDate);
+  data.entries = data.entries.filter(e => !(e.date === viewingDate && (e.shop||'К3') === viewingShop));
   save();
   closeModal('modal-view-day');
   renderHistory();
