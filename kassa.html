@@ -478,8 +478,8 @@
       </div>
     </div>
 
-    <!-- ОСТАТКИ -->
-    <div class="section">
+    <!-- ОСТАТКИ (К3) -->
+    <div class="section" id="ostatok-section">
       <div class="section-title">🏦 Остатки на конец дня</div>
 
       <div class="computed-row" style="padding-top:0;border-top:none;margin-bottom:4px">
@@ -508,6 +508,37 @@
         <span class="val" id="ostatok-sum">0,00 €</span>
       </div>
       <div style="text-align:right;font-size:12px;color:var(--text3);margin-top:6px" id="ostatok-diff-label"></div>
+    </div>
+
+    <!-- СЕЙФ (К1) — каждый день касса уходит под ноль, остаток копится в сейфе -->
+    <div class="section" id="safe-section" style="display:none">
+      <div class="section-title">🔒 Сейф (накопительно)</div>
+
+      <div class="computed-row" style="padding-top:0;border-top:none;margin-bottom:4px">
+        <span class="label">Сейф на начало дня</span>
+        <span class="value val-blue" id="safe-prev-show">0,00 €</span>
+      </div>
+      <div style="font-size:11px;margin-bottom:10px;padding-left:2px" id="safe-prev-hint"></div>
+
+      <div class="computed-row" style="margin-bottom:14px">
+        <span class="label">Внесено в сейф за день</span>
+        <span class="value" id="safe-addition-show">0,00 €</span>
+      </div>
+
+      <div class="divider"></div>
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 8px;">📤 Изъятие из сейфа (инкассация)</div>
+      <div id="safe-rko-list"></div>
+      <button class="btn btn-secondary btn-sm" onclick="addSafeRko()">+ Добавить изъятие</button>
+      <div class="computed-row" style="margin-top:10px">
+        <span class="label">Итого изъято из сейфа</span>
+        <span class="value val-orange" id="safe-rko-total">0,00 €</span>
+      </div>
+
+      <div class="divider"></div>
+      <div class="computed-row" style="border-top:none">
+        <span class="label" style="font-weight:600">Сейф на конец дня</span>
+        <span class="value" id="safe-final-show" style="font-weight:700;color:var(--green)">0,00 €</span>
+      </div>
     </div>
 
     <!-- 1С -->
@@ -594,12 +625,12 @@
   <div class="modal" style="display:flex;flex-direction:column;max-height:82vh;padding:0;overflow:hidden;">
     <div style="padding:20px 24px 16px;border-bottom:1px solid var(--glass-border);flex-shrink:0;">
       <div class="modal-title" style="margin-bottom:12px;">📋 Справочник РКО</div>
-      <div style="display:flex;gap:8px;align-items:center;">
+      <div style="display:flex;flex-direction:column;gap:8px;">
         <input type="text" id="new-rko-name" placeholder="Новый вид РКО..."
-          style="flex:1;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius3);padding:9px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border-color 0.18s;"
+          style="width:100%;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius3);padding:9px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border-color 0.18s;"
           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor=''"
           onkeydown="if(event.key==='Enter')addRkoRef()">
-        <button class="btn btn-primary" onclick="addRkoRef()" style="flex-shrink:0;">+ Добавить</button>
+        <button class="btn btn-primary" onclick="addRkoRef()" style="width:100%;">+ Добавить</button>
       </div>
     </div>
     <div id="rko-ref-list" style="overflow-y:auto;padding:16px 24px;flex:1;scrollbar-width:none;-ms-overflow-style:none;"></div>
@@ -633,7 +664,7 @@
 let data = JSON.parse(localStorage.getItem('kassa_data2') || '{"entries":[],"rkoRef":[]}');
 if (!data.rkoRef) data.rkoRef = [];
 
-let zCount = 0, rkoCount = 0, onecNalCount = 0, onecTerminalCount = 0;
+let zCount = 0, rkoCount = 0, onecNalCount = 0, onecTerminalCount = 0, safeRkoCount = 0;
 let viewingDate = null;
 let viewingShop = null;
 
@@ -645,6 +676,7 @@ function handleEnterKey(e, listType) {
   const listConfig = {
     z:            { selector: '.z-inp',            addFn: () => addZ() },
     rko:          { selector: '.rko-amt',          addFn: () => addRko() },
+    saferko:      { selector: '.safe-rko-amt',      addFn: () => addSafeRko() },
     onecNal:      { selector: '.onec-nal-inp',      addFn: () => addOnecNal() },
     onecTerminal: { selector: '.onec-terminal-inp', addFn: () => addOnecTerminal() },
   };
@@ -688,9 +720,11 @@ function init() {
   document.getElementById('entry-date').value = today.toISOString().slice(0,10);
   addZ(); addZ();
   addRko();
+  addSafeRko();
   addOnecNal();
   addOnecTerminal();
   loadPrevOstatok();
+  loadPrevSafe();
   renderRkoRef();
   updateSaveInfo();
 }
@@ -707,7 +741,9 @@ function onShopChange() {
   calcStats();
 }
 
-// Магазин К1 — только одна касса, прячем вторую карточку и меняем подписи
+// Магазин К1 — только одна касса, прячем вторую карточку и меняем подписи.
+// К1 также работает по другой схеме: касса каждый день уходит «под ноль» в сейф,
+// поэтому показываем блок «Сейф» вместо блока «Остатки».
 function updateShopUI() {
   const shop = getShop();
   const single = shop === 'К1';
@@ -716,6 +752,8 @@ function updateShopUI() {
   document.getElementById('ostatok-k1-label').textContent = single ? 'Касса' : 'Касса 1';
   document.getElementById('ostatok-check-label').textContent = single ? 'Остаток в кассе' : 'Сумма остатков К1 + К2';
   if (single) document.getElementById('ostatok-k2').value = '';
+  document.getElementById('ostatok-section').style.display = single ? 'none' : '';
+  document.getElementById('safe-section').style.display = single ? '' : 'none';
   calc();
 }
 
@@ -802,6 +840,41 @@ function getRkoItems() {
   return items;
 }
 
+// РКО ИЗ СЕЙФА (только К1) — изъятие/инкассация директором
+function addSafeRko() {
+  safeRkoCount++;
+  const id = `saferko-${safeRkoCount}`;
+  const div = document.createElement('div');
+  div.className = 'rko-item';
+  div.id = id;
+  div.innerHTML = `
+    <select class="rko-select safe-rko-sel" onchange="calc()" onkeydown="handleEnterKey(event)">
+      <option value="">— Вид РКО —</option>
+      ${data.rkoRef.map(r=>`<option value="${r}">${r}</option>`).join('')}
+    </select>
+    <input type="number" class="rko-amount safe-rko-amt" placeholder="0.00" step="0.01" oninput="calc()" onkeydown="handleEnterKey(event,'saferko')">
+    <button class="btn btn-secondary btn-icon" onclick="removeEl('${id}');calc()">✕</button>
+  `;
+  document.getElementById('safe-rko-list').appendChild(div);
+}
+
+function getSafeRkoTotal() {
+  let s = 0;
+  document.querySelectorAll('.safe-rko-amt').forEach(i => s += parseFloat(i.value)||0);
+  return s;
+}
+
+function getSafeRkoItems() {
+  const items = [];
+  const sels = document.querySelectorAll('.safe-rko-sel');
+  const amts = document.querySelectorAll('.safe-rko-amt');
+  sels.forEach((s,i) => {
+    if (s.value && amts[i] && parseFloat(amts[i].value)>0)
+      items.push({name:s.value, amount:parseFloat(amts[i].value)||0});
+  });
+  return items;
+}
+
 // ПРЕДЫДУЩИЙ ОСТАТОК — берём последнюю сохранённую запись до выбранной даты В ЭТОМ ЖЕ МАГАЗИНЕ
 function getPrevOstatok() {
   const date = document.getElementById('entry-date').value;
@@ -846,6 +919,45 @@ function loadPrevOstatok() {
   }
 }
 
+// ПРЕДЫДУЩИЙ СЕЙФ (только К1) — берём накопленный остаток сейфа последней записи до выбранной даты
+function getPrevSafe() {
+  const date = document.getElementById('entry-date').value;
+  const shop = getShop();
+  if (!date || !data.entries.length) return 0;
+  const earlier = data.entries.filter(e => e.date < date && (e.shop||'К3') === shop);
+  if (!earlier.length) return 0;
+  earlier.sort((a, b) => b.date.localeCompare(a.date));
+  return earlier[0].safeBalance || 0;
+}
+
+function getPrevSafeDate() {
+  const date = document.getElementById('entry-date').value;
+  const shop = getShop();
+  if (!date || !data.entries.length) return null;
+  const earlier = data.entries.filter(e => e.date < date && (e.shop||'К3') === shop);
+  if (!earlier.length) return null;
+  earlier.sort((a, b) => b.date.localeCompare(a.date));
+  return earlier[0].date;
+}
+
+function loadPrevSafe() {
+  const amount = getPrevSafe();
+  const prevDate = getPrevSafeDate();
+  const el = document.getElementById('safe-prev-show');
+  if (el) el.textContent = fmt(amount);
+  const hintEl = document.getElementById('safe-prev-hint');
+  if (hintEl) {
+    if (prevDate) {
+      const d = new Date(prevDate + 'T00:00:00');
+      hintEl.textContent = 'перенос с ' + d.toLocaleDateString('ru-RU', {day:'numeric', month:'long'});
+      hintEl.style.color = 'var(--accent)';
+    } else {
+      hintEl.textContent = 'нет предыдущих записей';
+      hintEl.style.color = 'var(--text3)';
+    }
+  }
+}
+
 // При смене даты — очищаем форму и подгружаем нужный остаток
 function onDateChange() {
   const date = document.getElementById('entry-date').value;
@@ -863,6 +975,7 @@ function onDateChange() {
   // Иначе — очищаем форму
   resetForm();
   loadPrevOstatok();
+  loadPrevSafe();
   updateSaveInfo();
 }
 
@@ -880,6 +993,11 @@ function resetForm() {
   document.getElementById('rko-list').innerHTML = '';
   rkoCount = 0;
   addRko();
+
+  // Очищаем РКО из сейфа
+  document.getElementById('safe-rko-list').innerHTML = '';
+  safeRkoCount = 0;
+  addSafeRko();
 
   // Очищаем 1С
   document.getElementById('onec-nal-list').innerHTML = '';
@@ -922,6 +1040,18 @@ function loadEntry(e) {
   });
   if (!e.rko?.length) addRko();
 
+  // РКО из сейфа
+  document.getElementById('safe-rko-list').innerHTML = '';
+  safeRkoCount = 0;
+  (e.safeRko||[]).forEach(r => {
+    addSafeRko();
+    const sels = document.querySelectorAll('.safe-rko-sel');
+    const amts = document.querySelectorAll('.safe-rko-amt');
+    sels[sels.length-1].value = r.name;
+    amts[amts.length-1].value = r.amount;
+  });
+  if (!e.safeRko?.length) addSafeRko();
+
   // 1С нал
   document.getElementById('onec-nal-list').innerHTML = '';
   onecNalCount = 0;
@@ -937,6 +1067,7 @@ function loadEntry(e) {
   if (!termVals.length) addOnecTerminal();
 
   loadPrevOstatok();
+  loadPrevSafe();
   calc();
 }
 
@@ -997,11 +1128,10 @@ function calc() {
   const nalFact = parseFloat(document.getElementById('nal-fact').value)||0;
   const izlishek = parseFloat(document.getElementById('izlishek').value)||0;
   const rkoTotal = getRkoTotal();
-  const prevOst = getPrevOstatok();
-  const k1 = parseFloat(document.getElementById('ostatok-k1').value)||0;
-  const k2 = parseFloat(document.getElementById('ostatok-k2').value)||0;
   const onecNal = getOnecNalTotal();
   const onecTerminal = getOnecTerminalTotal();
+  const shop = getShop();
+  const single = shop === 'К1';
 
   // Z total
   document.getElementById('z-total-val').textContent = fmt(zTotal);
@@ -1017,29 +1147,48 @@ function calc() {
   document.getElementById('onec-nal-total-val').textContent = fmt(onecNal);
   document.getElementById('onec-terminal-total-val').textContent = fmt(onecTerminal);
 
-  // Расчётный остаток = предыдущий + нал по Z - РКО + излишек
-  // (фактический нал уже за вычетом РКО, поэтому РКО вычитаем из нала по Z)
-  const ostatokCalc = prevOst + nalCalc - rkoTotal + izlishek;
-  document.getElementById('ostatok-calc').textContent = fmt(ostatokCalc);
+  if (single) {
+    // К1: касса каждый день уходит «под ноль», весь остаток нала кладётся в сейф.
+    // Сейф копится изо дня в день, пока не введено изъятие (РКО) из самого сейфа.
+    const prevSafe = getPrevSafe();
+    const safeAddition = nalCalc - rkoTotal + izlishek;
+    const safeRkoTotal = getSafeRkoTotal();
+    const safeFinal = prevSafe + safeAddition - safeRkoTotal;
 
-  // Сумма остатков по кассам
-  const ostatokSum = k1 + k2;
-  document.getElementById('ostatok-sum').textContent = fmt(ostatokSum);
-
-  const diff = ostatokSum - ostatokCalc;
-  const checkEl = document.getElementById('ostatok-check');
-  const diffLabel = document.getElementById('ostatok-diff-label');
-
-  if (k1 || k2) {
-    const ok = Math.abs(diff) < 0.01;
-    checkEl.className = 'ostatok-check ' + (ok ? 'ok' : 'fail');
-    document.getElementById('ostatok-sum').style.color = ok ? 'var(--green)' : 'var(--red)';
-    diffLabel.textContent = ok ? '✓ Остатки сходятся' : `Расхождение: ${(diff>=0?'+':'')+fmt(diff)}`;
-    diffLabel.style.color = ok ? 'var(--green)' : 'var(--red)';
+    document.getElementById('safe-prev-show').textContent = fmt(prevSafe);
+    document.getElementById('safe-addition-show').textContent = fmt(safeAddition);
+    document.getElementById('safe-rko-total').textContent = fmt(safeRkoTotal);
+    document.getElementById('safe-final-show').textContent = fmt(safeFinal);
   } else {
-    checkEl.className = 'ostatok-check';
-    document.getElementById('ostatok-sum').style.color = '';
-    diffLabel.textContent = '';
+    // К3: остаток физически хранится в кассе(ах) и переносится на следующий день
+    const prevOst = getPrevOstatok();
+    const k1 = parseFloat(document.getElementById('ostatok-k1').value)||0;
+    const k2 = parseFloat(document.getElementById('ostatok-k2').value)||0;
+
+    // Расчётный остаток = предыдущий + нал по Z - РКО + излишек
+    // (фактический нал уже за вычетом РКО, поэтому РКО вычитаем из нала по Z)
+    const ostatokCalc = prevOst + nalCalc - rkoTotal + izlishek;
+    document.getElementById('ostatok-calc').textContent = fmt(ostatokCalc);
+
+    // Сумма остатков по кассам
+    const ostatokSum = k1 + k2;
+    document.getElementById('ostatok-sum').textContent = fmt(ostatokSum);
+
+    const diff = ostatokSum - ostatokCalc;
+    const checkEl = document.getElementById('ostatok-check');
+    const diffLabel = document.getElementById('ostatok-diff-label');
+
+    if (k1 || k2) {
+      const ok = Math.abs(diff) < 0.01;
+      checkEl.className = 'ostatok-check ' + (ok ? 'ok' : 'fail');
+      document.getElementById('ostatok-sum').style.color = ok ? 'var(--green)' : 'var(--red)';
+      diffLabel.textContent = ok ? '✓ Остатки сходятся' : `Расхождение: ${(diff>=0?'+':'')+fmt(diff)}`;
+      diffLabel.style.color = ok ? 'var(--green)' : 'var(--red)';
+    } else {
+      checkEl.className = 'ostatok-check';
+      document.getElementById('ostatok-sum').style.color = '';
+      diffLabel.textContent = '';
+    }
   }
 
   // 1С расхождения (нал по Z vs 1С, а не фактический нал)
@@ -1072,24 +1221,45 @@ function saveEntry() {
   const shop = getShop();
   const single = shop === 'К1';
 
+  const zTotal = getZTotal();
+  const terminal = parseFloat(document.getElementById('terminal').value)||0;
+  const izlishek = parseFloat(document.getElementById('izlishek').value)||0;
+  const rkoTotal = getRkoTotal();
+  const nalCalc = zTotal - terminal;
+
   const entry = {
     date,
     shop,
     zReports: getZValues(),
-    zTotal: getZTotal(),
-    terminal: parseFloat(document.getElementById('terminal').value)||0,
+    zTotal,
+    terminal,
     nalFact: parseFloat(document.getElementById('nal-fact').value)||0,
-    izlishek: parseFloat(document.getElementById('izlishek').value)||0,
+    izlishek,
     rko: getRkoItems(),
-    rkoTotal: getRkoTotal(),
-    prevOstatok: getPrevOstatok(),
-    ostatokK1: parseFloat(document.getElementById('ostatok-k1').value)||0,
-    ostatokK2: single ? 0 : (parseFloat(document.getElementById('ostatok-k2').value)||0),
+    rkoTotal,
     onecNalValues: getOnecNalValues(),
     onecNal: getOnecNalTotal(),
     onecTerminalValues: getOnecTerminalValues(),
     onecTerminal: getOnecTerminalTotal(),
   };
+
+  if (single) {
+    // К1 — копим сейф: касса в этот день уходит в 0
+    const prevSafe = getPrevSafe();
+    const safeAddition = nalCalc - rkoTotal + izlishek;
+    const safeRkoTotal = getSafeRkoTotal();
+    entry.prevSafe = prevSafe;
+    entry.safeRko = getSafeRkoItems();
+    entry.safeRkoTotal = safeRkoTotal;
+    entry.safeBalance = prevSafe + safeAddition - safeRkoTotal;
+    entry.ostatokK1 = 0;
+    entry.ostatokK2 = 0;
+  } else {
+    // К3 — остаток физически хранится в кассе(ах)
+    entry.prevOstatok = getPrevOstatok();
+    entry.ostatokK1 = parseFloat(document.getElementById('ostatok-k1').value)||0;
+    entry.ostatokK2 = parseFloat(document.getElementById('ostatok-k2').value)||0;
+  }
 
   const idx = data.entries.findIndex(e => e.date === date && (e.shop||'К3') === shop);
   if (idx >= 0) {
@@ -1230,6 +1400,7 @@ function calcStats() {
 function renderHistory() {
   const el = document.getElementById('history-list');
   const shop = getShop();
+  const single = shop === 'К1';
   const filtered = data.entries.filter(e => (e.shop||'К3') === shop);
   if (!filtered.length) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>Записей пока нет</div>`;
@@ -1238,6 +1409,22 @@ function renderHistory() {
   el.innerHTML = [...filtered].reverse().map(e => {
     const d = new Date(e.date+'T00:00:00');
     const label = d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+
+    if (single) {
+      const safeFinal = e.safeBalance||0;
+      return `
+        <div class="history-item" onclick="viewEntry('${e.date}','${e.shop||'К3'}')">
+          <div>
+            <div class="history-date">${label}</div>
+            <div class="history-meta">Z: ${fmt(e.zTotal||0)} · Нал: ${fmt(e.nalFact||0)} · Сейф: ${fmt(safeFinal)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="color:var(--text3);font-size:18px">›</span>
+          </div>
+        </div>
+      `;
+    }
+
     const totalOst = (e.ostatokK1||0)+(e.ostatokK2||0);
     const calcOst = (e.prevOstatok||0)+((e.zTotal||0)-(e.terminal||0))-(e.rkoTotal||0)+(e.izlishek||0);
     const ok = Math.abs(totalOst-calcOst)<0.01;
@@ -1268,11 +1455,33 @@ function viewEntry(date, shop) {
     d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}) + ' · ' + (e.shop||'К3');
 
   const nalCalc = (e.zTotal||0) - (e.terminal||0);
-  const calcOst = (e.prevOstatok||0)+nalCalc-(e.rkoTotal||0)+(e.izlishek||0);
-  const totalOst = single ? (e.ostatokK1||0) : (e.ostatokK1||0)+(e.ostatokK2||0);
-  const ostDiff = totalOst - calcOst;
   const diffNal = nalCalc-(e.onecNal||0);
   const diffTerm = (e.terminal||0)-(e.onecTerminal||0);
+
+  let extraHtml;
+  if (single) {
+    const prevSafe = e.prevSafe||0;
+    const safeAddition = nalCalc - (e.rkoTotal||0) + (e.izlishek||0);
+    extraHtml = `
+      <div class="result-row"><span class="lbl">Сейф нач. дня</span><span>${fmt(prevSafe)}</span></div>
+      <div class="result-row"><span class="lbl">Внесено в сейф за день</span><span>${fmt(safeAddition)}</span></div>
+      ${(e.safeRko||[]).map(r=>`<div class="result-row"><span class="lbl">Изъято из сейфа: ${r.name}</span><span style="color:var(--orange)">${fmt(r.amount)}</span></div>`).join('')}
+      <div class="result-row"><span class="lbl">Итого изъято из сейфа</span><span style="color:var(--orange)">${fmt(e.safeRkoTotal||0)}</span></div>
+      <div class="result-row"><span class="lbl" style="font-weight:600">Сейф на конец дня</span><span style="font-weight:700;color:var(--green)">${fmt(e.safeBalance||0)}</span></div>
+    `;
+  } else {
+    const calcOst = (e.prevOstatok||0)+nalCalc-(e.rkoTotal||0)+(e.izlishek||0);
+    const totalOst = (e.ostatokK1||0)+(e.ostatokK2||0);
+    const ostDiff = totalOst - calcOst;
+    extraHtml = `
+      <div class="result-row"><span class="lbl">Остаток нач. дня</span><span>${fmt(e.prevOstatok)}</span></div>
+      <div class="result-row"><span class="lbl">Расчётный остаток</span><span>${fmt(calcOst)}</span></div>
+      <div class="result-row"><span class="lbl">Касса 1</span><span>${fmt(e.ostatokK1)}</span></div>
+      <div class="result-row"><span class="lbl">Касса 2</span><span>${fmt(e.ostatokK2)}</span></div>
+      <div class="result-row"><span class="lbl">К1 + К2</span><span class="${Math.abs(ostDiff)<0.01?'val-green':'val-red'}">${fmt(totalOst)}</span></div>
+      <div class="result-row"><span class="lbl">Расхождение остатка</span><span class="${Math.abs(ostDiff)<0.01?'val-green':'val-red'}">${(ostDiff>=0?'+':'')+fmt(ostDiff)}</span></div>
+    `;
+  }
 
   document.getElementById('view-day-content').innerHTML = `
     <div class="result-row"><span class="lbl">Z-отчёты</span><span>${(e.zReports||[]).map(fmt).join(', ')||'—'}</span></div>
@@ -1284,12 +1493,7 @@ function viewEntry(date, shop) {
     ${(e.rko||[]).map(r=>`<div class="result-row"><span class="lbl">РКО: ${r.name}</span><span style="color:var(--orange)">${fmt(r.amount)}</span></div>`).join('')}
     <div class="result-row"><span class="lbl">Итого РКО</span><span style="color:var(--orange)">${fmt(e.rkoTotal)}</span></div>
     <div class="divider"></div>
-    <div class="result-row"><span class="lbl">Остаток нач. дня</span><span>${fmt(e.prevOstatok)}</span></div>
-    <div class="result-row"><span class="lbl">Расчётный остаток</span><span>${fmt(calcOst)}</span></div>
-    <div class="result-row"><span class="lbl">${single?'Касса':'Касса 1'}</span><span>${fmt(e.ostatokK1)}</span></div>
-    ${single?'':`<div class="result-row"><span class="lbl">Касса 2</span><span>${fmt(e.ostatokK2)}</span></div>`}
-    <div class="result-row"><span class="lbl">${single?'Итого касса':'К1 + К2'}</span><span class="${Math.abs(ostDiff)<0.01?'val-green':'val-red'}">${fmt(totalOst)}</span></div>
-    <div class="result-row"><span class="lbl">Расхождение остатка</span><span class="${Math.abs(ostDiff)<0.01?'val-green':'val-red'}">${(ostDiff>=0?'+':'')+fmt(ostDiff)}</span></div>
+    ${extraHtml}
     <div class="divider"></div>
     <div class="result-row"><span class="lbl">Нал (факт − 1С)</span><span class="${Math.abs(diffNal)<0.01?'val-green':'val-red'}">${(diffNal>=0?'+':'')+fmt(diffNal)}</span></div>
     <div class="result-row"><span class="lbl">Терминал (факт − 1С)</span><span class="${Math.abs(diffTerm)<0.01?'val-green':'val-red'}">${(diffTerm>=0?'+':'')+fmt(diffTerm)}</span></div>
@@ -1358,9 +1562,10 @@ function saveRkoRef(i) {
   if (newName === oldName) { cancelRkoEdit(i); return; }
   if (data.rkoRef.includes(newName)) { toast('Уже есть'); return; }
   data.rkoRef[i] = newName;
-  // Обновляем все РКО в записях
+  // Обновляем все РКО в записях (обычные и из сейфа)
   data.entries.forEach(e => {
     (e.rko||[]).forEach(r => { if (r.name === oldName) r.name = newName; });
+    (e.safeRko||[]).forEach(r => { if (r.name === oldName) r.name = newName; });
   });
   save();
   renderRkoRef();
@@ -1389,7 +1594,7 @@ function removeRkoRef(i) {
 }
 
 function refreshRkoSelects() {
-  document.querySelectorAll('.rko-sel').forEach(sel => {
+  document.querySelectorAll('.rko-sel, .safe-rko-sel').forEach(sel => {
     const cur = sel.value;
     sel.innerHTML = `<option value="">— Вид РКО —</option>` +
       data.rkoRef.map(r=>`<option value="${r}" ${r===cur?'selected':''}>${r}</option>`).join('');
