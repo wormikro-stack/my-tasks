@@ -62,6 +62,7 @@
     padding: 12px 16px 10px;
   }
   .header-row1 {
+    gap:8px;
     display:flex; align-items:center; justify-content:space-between;
     margin-bottom:10px;
   }
@@ -75,7 +76,8 @@
     box-shadow: 0 2px 16px rgba(79,163,255,0.25);
   }
   .header-title { font-size:17px; font-weight:600; letter-spacing:-0.4px; }
-  .header-actions { display:flex; gap:6px; }
+  .header-actions { display:flex; gap:6px; flex-wrap:wrap; }
+
   .header-row2 {
     display:flex; align-items:center; gap:8px;
   }
@@ -348,7 +350,7 @@
     box-shadow:0 20px 60px rgba(0,0,0,0.6);
   }
   .modal-title { font-size:16px; font-weight:600; margin-bottom:16px; }
-  .modal-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
+  .modal-actions { display:flex; gap:8px; margin-top:16px; }
 
   .rko-ref-item {
     display:flex; align-items:center; justify-content:space-between;
@@ -396,6 +398,70 @@
   input[type=number]::-webkit-inner-spin-button,
   input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; }
   input[type=number] { -moz-appearance:textfield; }
+
+  /* APPLE-STYLE CONFIRM DIALOG */
+  .apple-confirm-overlay {
+    display:none; position:fixed; inset:0; z-index:500;
+    background:rgba(0,0,0,0.45);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    align-items:center; justify-content:center;
+    animation:fadeIn 0.18s ease;
+  }
+  .apple-confirm-overlay.open { display:flex; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .apple-confirm-box {
+    background:rgba(30,30,46,0.96);
+    border:1px solid rgba(255,255,255,0.14);
+    border-radius:20px;
+    padding:22px 20px 0;
+    width:calc(100% - 48px);
+    max-width:300px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.7);
+    text-align:center;
+    animation:popIn 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn {
+    from{transform:scale(0.82);opacity:0}
+    to{transform:scale(1);opacity:1}
+  }
+  .apple-confirm-title {
+    font-size:17px; font-weight:600;
+    color:var(--text);
+    margin-bottom:6px;
+    letter-spacing:-0.3px;
+  }
+  .apple-confirm-msg {
+    font-size:13px; color:var(--text2);
+    line-height:1.4;
+    margin-bottom:18px;
+  }
+  .apple-confirm-btns {
+    border-top:1px solid rgba(255,255,255,0.1);
+    display:flex;
+  }
+  .apple-confirm-btns button {
+    flex:1;
+    background:none; border:none;
+    padding:14px 8px;
+    font-family:inherit; font-size:16px;
+    cursor:pointer;
+    transition:background 0.15s;
+    border-radius:0;
+  }
+  .apple-confirm-btns button:first-child {
+    border-right:1px solid rgba(255,255,255,0.1);
+    border-bottom-left-radius:20px;
+    color:var(--text2);
+    font-weight:400;
+  }
+  .apple-confirm-btns button:first-child:active { background:rgba(255,255,255,0.06); }
+  .apple-confirm-btns button:last-child {
+    border-bottom-right-radius:20px;
+    color:var(--red);
+    font-weight:600;
+  }
+  .apple-confirm-btns button:last-child:active { background:rgba(255,94,87,0.12); }
 </style>
 </head>
 <body>
@@ -406,13 +472,14 @@
       <div class="header-icon">💶</div>
       <div class="header-title">Касса</div>
     </div>
-    <div class="header-actions">
-      <button class="btn btn-secondary btn-sm" onclick="window.location.href='index.html'">← Задания</button>
-      <button class="btn btn-secondary btn-sm" onclick="openRkoRef()">📋 РКО</button>
-      <button class="btn btn-secondary btn-sm" onclick="showTab('stats')" id="tab-stats-btn">📊 Статистика</button>
-      <button class="btn btn-secondary btn-sm" onclick="showTab('history')" id="tab-history-btn">🕐 История</button>
-      <button class="btn btn-secondary btn-sm" onclick="showTab('new')" id="tab-new-btn" style="display:none">✏️ Ввод</button>
-    </div>
+  </div>
+  <div class="header-actions" style="margin-bottom:10px;">
+    <button class="btn btn-secondary btn-sm" onclick="window.location.href='index.html'">← Задания</button>
+    <button class="btn btn-secondary btn-sm" onclick="openRkoRef()">📋 РКО</button>
+    <button class="btn btn-secondary btn-sm" onclick="openPko()" title="Приходный кассовый ордер">📥 ПКО</button>
+    <button class="btn btn-secondary btn-sm" onclick="showTab('stats')" id="tab-stats-btn">📊 Статистика</button>
+    <button class="btn btn-secondary btn-sm" onclick="showTab('history')" id="tab-history-btn">🕐 История</button>
+    <button class="btn btn-secondary btn-sm" onclick="showTab('new')" id="tab-new-btn" style="display:none">✏️ Ввод</button>
   </div>
   <div class="header-row2">
     <select class="header-shop-select" id="shop-select" onchange="onShopChange()">
@@ -456,12 +523,12 @@
         <span class="value val-blue" id="nal-calc">0,00 €</span>
       </div>
 
-      <div class="field" style="margin-top:12px">
+      <div class="field" style="margin-top:12px" id="nal-fact-field">
         <label>Фактический нал</label>
         <input type="number" id="nal-fact" placeholder="0.00" step="0.01" oninput="calc()" onkeydown="handleEnterKey(event)">
       </div>
 
-      <div class="field">
+      <div class="field" id="izlishek-field">
         <label>Излишек (мелочь на чай)</label>
         <input type="number" id="izlishek" placeholder="0.00" step="0.01" oninput="calc()" onkeydown="handleEnterKey(event)">
       </div>
@@ -599,12 +666,8 @@
     <div class="section" id="stats-summary"></div>
 
     <div class="section" id="stats-rko-section">
-      <div class="section-title">📤 Фильтр по РКО</div>
-      <select id="stats-rko-filter" onchange="calcStats()"
-        style="width:100%;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius3);padding:9px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;cursor:pointer;">
-        <option value="">— Все виды РКО —</option>
-      </select>
-      <div id="stats-rko-result" style="margin-top:10px;"></div>
+      <div class="section-title">📤 РКО по видам</div>
+      <div id="stats-rko-result"></div>
     </div>
 
     <div class="section" id="stats-days-section">
@@ -647,7 +710,47 @@
     <div class="modal-title" id="view-day-title">—</div>
     <div id="view-day-content"></div>
     <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="confirmDeleteEntry()">🗑 Удалить</button>
       <button class="btn btn-secondary" onclick="closeModal('modal-view-day')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- APPLE CONFIRM DIALOG -->
+<div class="apple-confirm-overlay" id="apple-confirm">
+  <div class="apple-confirm-box">
+    <div class="apple-confirm-title" id="apple-confirm-title">Удалить запись?</div>
+    <div class="apple-confirm-msg" id="apple-confirm-msg">Это действие нельзя отменить.</div>
+    <div class="apple-confirm-btns">
+      <button onclick="appleConfirmCancel()">Отмена</button>
+      <button id="apple-confirm-ok" onclick="appleConfirmOk()">Удалить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ПКО (приходный кассовый ордер) -->
+<div class="modal-overlay" id="modal-pko">
+  <div class="modal">
+    <div class="modal-title">💰 ПКО — внесение в кассу</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">Добавить деньги в кассу или сейф (редкая операция)</div>
+    <div class="field">
+      <label>Куда</label>
+      <select id="pko-target" style="width:100%;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius3);padding:9px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;cursor:pointer;">
+        <option value="kassa">В кассу</option>
+        <option value="safe">В сейф (только К1)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Комментарий</label>
+      <input type="text" id="pko-comment" placeholder="Например: разменная монета" style="width:100%;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius3);padding:9px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border-color 0.18s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor=''">
+    </div>
+    <div class="field">
+      <label>Сумма</label>
+      <input type="number" id="pko-amount" placeholder="0.00" step="0.01" style="width:100%;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius3);padding:9px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border-color 0.18s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor=''">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-pko')">Отмена</button>
+      <button class="btn btn-primary" onclick="savePko()">Добавить ПКО</button>
     </div>
   </div>
 </div>
@@ -670,6 +773,7 @@ let viewingShop = null;
 
 // ENTER — переход к следующему полю (а на последней строке списка — добавление новой строки)
 function handleEnterKey(e, listType) {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); return; }
   if (e.key !== 'Enter') return;
   e.preventDefault();
 
@@ -754,6 +858,8 @@ function updateShopUI() {
   if (single) document.getElementById('ostatok-k2').value = '';
   document.getElementById('ostatok-section').style.display = single ? 'none' : '';
   document.getElementById('safe-section').style.display = single ? '' : 'none';
+  document.getElementById('nal-fact-field').style.display = single ? 'none' : '';
+  document.getElementById('izlishek-field').style.display = single ? 'none' : '';
   calc();
 }
 
@@ -1283,11 +1389,6 @@ function initStatsTab() {
     fromEl.value = first.toISOString().slice(0,10);
     toEl.value = today.toISOString().slice(0,10);
   }
-  // Заполняем фильтр РКО
-  const sel = document.getElementById('stats-rko-filter');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">— Все виды РКО —</option>' +
-    data.rkoRef.map(r => `<option value="${r}" ${r===cur?'selected':''}>${r}</option>`).join('');
   calcStats();
 }
 
@@ -1302,7 +1403,6 @@ function calcStats() {
   const from = fromEl.value;
   const to = toEl.value;
   const shop = getShop();
-  const rkoFilter = (document.getElementById('stats-rko-filter')||{}).value || '';
 
   if (!from || !to) {
     summaryEl.innerHTML = `<div class="section-title">📌 Итого за период</div><div style="color:var(--text3);font-size:13px">Выберите даты «с» и «по»</div>`;
@@ -1332,7 +1432,6 @@ function calcStats() {
     const d = new Date(e.date+'T00:00:00');
     const label = d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
 
-    // Подсказка по возвратам
     const vozvrats = (e.rko||[]).filter(r => r.name.toLowerCase().includes('возврат'));
     const vozvratHint = vozvrats.length
       ? `<span style="color:var(--orange);font-size:11px;margin-left:6px">(возврат: ${vozvrats.map(r=>fmt(r.amount)).join(', ')})</span>`
@@ -1366,32 +1465,38 @@ function calcStats() {
   daysEl.innerHTML =
     `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:600;">По дням (нал / терминал)</div>` + rows;
 
-  // Фильтр по РКО
+  // РКО: сводка по всем видам за период
   if (rkoResultEl) {
-    if (!rkoFilter) {
-      rkoResultEl.innerHTML = '';
-    } else {
-      let rkoSum = 0;
-      const rkoRows = [];
-      entries.forEach(e => {
-        (e.rko||[]).filter(r => r.name === rkoFilter).forEach(r => {
-          rkoSum += r.amount;
-          const d = new Date(e.date+'T00:00:00');
-          rkoRows.push(`<div class="diff-row"><span class="lbl">${d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}</span><span style="color:var(--orange)">${fmt(r.amount)}</span></div>`);
-        });
+    const rkoMap = {};
+    entries.forEach(e => {
+      (e.rko||[]).forEach(r => {
+        if (!r.name) return;
+        rkoMap[r.name] = (rkoMap[r.name]||0) + r.amount;
       });
-      if (!rkoRows.length) {
-        rkoResultEl.innerHTML = `<div style="color:var(--text3);font-size:13px;">Нет записей по «${rkoFilter}» за этот период</div>`;
-      } else {
-        rkoResultEl.innerHTML = `
-          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:600;">${rkoFilter}</div>
-          ${rkoRows.join('')}
-          <div class="computed-row" style="margin-top:6px;">
-            <span class="label">Итого</span>
-            <span class="value val-orange">${fmt(rkoSum)}</span>
+      // Также считаем изъятия из сейфа (К1)
+      (e.safeRko||[]).forEach(r => {
+        if (!r.name) return;
+        const key = r.name + ' (сейф)';
+        rkoMap[key] = (rkoMap[key]||0) + r.amount;
+      });
+    });
+
+    const names = Object.keys(rkoMap);
+    if (!names.length) {
+      rkoResultEl.innerHTML = `<div style="color:var(--text3);font-size:13px;">РКО за период не найдены</div>`;
+    } else {
+      const totalRko = names.reduce((s, n) => s + rkoMap[n], 0);
+      rkoResultEl.innerHTML =
+        names.map(n => `
+          <div class="diff-row">
+            <span class="lbl">${n}</span>
+            <span style="color:var(--orange)">${fmt(rkoMap[n])}</span>
           </div>
-        `;
-      }
+        `).join('') +
+        `<div class="computed-row" style="margin-top:6px;">
+          <span class="label" style="font-weight:600;">Итого РКО</span>
+          <span class="value val-orange">${fmt(totalRko)}</span>
+        </div>`;
     }
   }
 }
@@ -1502,14 +1607,94 @@ function viewEntry(date, shop) {
   document.getElementById('modal-view-day').classList.add('open');
 }
 
-function deleteEntry() {
+// APPLE CONFIRM DIALOG
+let _appleConfirmCallback = null;
+
+function appleConfirm(title, msg, okLabel, cb) {
+  document.getElementById('apple-confirm-title').textContent = title;
+  document.getElementById('apple-confirm-msg').textContent = msg;
+  document.getElementById('apple-confirm-ok').textContent = okLabel;
+  _appleConfirmCallback = cb;
+  document.getElementById('apple-confirm').classList.add('open');
+}
+
+function appleConfirmOk() {
+  document.getElementById('apple-confirm').classList.remove('open');
+  if (_appleConfirmCallback) { _appleConfirmCallback(); _appleConfirmCallback = null; }
+}
+
+function appleConfirmCancel() {
+  document.getElementById('apple-confirm').classList.remove('open');
+  _appleConfirmCallback = null;
+}
+
+function confirmDeleteEntry() {
   if (!viewingDate) return;
-  if (!confirm('Удалить запись?')) return;
-  data.entries = data.entries.filter(e => !(e.date === viewingDate && (e.shop||'К3') === viewingShop));
+  const d = new Date(viewingDate+'T00:00:00');
+  const label = d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+  appleConfirm('Удалить запись?', `${label} · ${viewingShop}. Это действие нельзя отменить.`, 'Удалить', () => {
+    data.entries = data.entries.filter(e => !(e.date === viewingDate && (e.shop||'К3') === viewingShop));
+    save();
+    closeModal('modal-view-day');
+    renderHistory();
+    toast('Удалено');
+  });
+}
+
+function deleteEntry() {
+  confirmDeleteEntry();
+}
+
+function confirmRemoveRkoRef(i) {
+  appleConfirm('Удалить вид РКО?', `«${data.rkoRef[i]}» будет удалён из справочника.`, 'Удалить', () => {
+    removeRkoRef(i);
+  });
+}
+
+// ПКО
+function openPko() {
+  document.getElementById('pko-amount').value = '';
+  document.getElementById('pko-comment').value = '';
+  // Показываем опцию "В сейф" только для К1
+  const target = document.getElementById('pko-target');
+  const shop = getShop();
+  target.innerHTML = shop === 'К1'
+    ? '<option value="kassa">В кассу</option><option value="safe">В сейф</option>'
+    : '<option value="kassa">В кассу</option>';
+  document.getElementById('modal-pko').classList.add('open');
+}
+
+function savePko() {
+  const amount = parseFloat(document.getElementById('pko-amount').value)||0;
+  if (!amount) { toast('Укажите сумму'); return; }
+  const comment = document.getElementById('pko-comment').value.trim() || 'ПКО';
+  const target = document.getElementById('pko-target').value;
+  const date = document.getElementById('entry-date').value;
+  if (!date) { toast('Выберите дату'); return; }
+  const shop = getShop();
+
+  // Сохраняем ПКО как отметку в записи дня (или создаём минимальную запись)
+  let entry = data.entries.find(e => e.date === date && (e.shop||'К3') === shop);
+  if (!entry) {
+    // Нет записи за этот день — создаём заготовку
+    entry = { date, shop, zReports:[], zTotal:0, terminal:0, nalFact:0, izlishek:0, rko:[], rkoTotal:0,
+               onecNalValues:[], onecNal:0, onecTerminalValues:[], onecTerminal:0,
+               pko:[], safeBalance: getPrevSafe(), ostatokK1:0, ostatokK2:0 };
+    data.entries.push(entry);
+    data.entries.sort((a,b) => a.date.localeCompare(b.date)||(a.shop||'').localeCompare(b.shop||''));
+  }
+  if (!entry.pko) entry.pko = [];
+  entry.pko.push({ amount, comment, target });
+
+  // Если в сейф — прибавляем к балансу сейфа
+  if (target === 'safe' && shop === 'К1') {
+    entry.safeBalance = (entry.safeBalance||0) + amount;
+  }
+
   save();
-  closeModal('modal-view-day');
-  renderHistory();
-  toast('Удалено');
+  closeModal('modal-pko');
+  toast(`ПКО +${fmt(amount)} добавлен`);
+  calc();
 }
 
 // РКО СПРАВОЧНИК
@@ -1533,7 +1718,7 @@ function renderRkoRef() {
       <div style="display:flex;gap:6px;flex-shrink:0;">
         <button class="btn btn-secondary btn-icon btn-sm rko-edit-btn" id="rko-edit-btn-${i}" onclick="startRkoEdit(${i})" title="Редактировать">✏️</button>
         <button class="btn btn-primary btn-sm rko-save-btn" id="rko-save-btn-${i}" style="display:none;" onclick="saveRkoRef(${i})">✓</button>
-        <button class="btn btn-danger btn-icon btn-sm" onclick="removeRkoRef(${i})">✕</button>
+        <button class="btn btn-danger btn-icon btn-sm" onclick="confirmRemoveRkoRef(${i})">✕</button>
       </div>
     </div>
   `).join('');
