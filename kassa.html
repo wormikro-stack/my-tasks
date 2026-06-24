@@ -520,12 +520,6 @@
   <!-- TAB: ВВОД -->
   <div id="view-new">
 
-    <!-- ЗАМОРОЗКА -->
-    <div class="locked-bar" id="locked-bar">
-      <span class="locked-bar-text">🔒 День сохранён и заморожен</span>
-      <button class="btn btn-secondary locked-bar-btn unlock-exempt" onclick="unlockDay()">Разблокировать</button>
-    </div>
-
     <!-- Z-ОТЧЁТЫ -->
     <div class="section">
       <div class="section-title">📄 Z-отчёты</div>
@@ -704,7 +698,7 @@
 <!-- SAVE BAR -->
 <div class="save-bar">
   <div class="save-bar-info" id="save-info">Введите данные за день</div>
-  <button class="btn btn-primary" id="save-btn" onclick="saveEntry()">💾 Сохранить день</button>
+  <button class="btn btn-primary" id="save-btn" onclick="saveOrUnlock()">💾 Сохранить день</button>
 </div>
 
 <!-- MODAL: РКО СПРАВОЧНИК -->
@@ -1372,20 +1366,32 @@ function updateSaveInfo() {
 // SAVE
 function setLocked(locked) {
   const form = document.getElementById('view-new');
-  const bar = document.getElementById('locked-bar');
-  const saveBtn = document.getElementById('save-btn');
+  const btn = document.getElementById('save-btn');
   if (locked) {
     form.classList.add('form-locked');
-    bar.classList.add('visible');
-    saveBtn.disabled = true;
-    saveBtn.style.opacity = '0.35';
-    saveBtn.style.pointerEvents = 'none';
+    btn.textContent = '🔓 Разблокировать';
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.pointerEvents = '';
+    btn.style.background = 'rgba(255,255,255,0.1)';
+    btn.style.color = 'var(--text2)';
   } else {
     form.classList.remove('form-locked');
-    bar.classList.remove('visible');
-    saveBtn.disabled = false;
-    saveBtn.style.opacity = '';
-    saveBtn.style.pointerEvents = '';
+    btn.textContent = '💾 Сохранить день';
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.pointerEvents = '';
+    btn.style.background = '';
+    btn.style.color = '';
+  }
+}
+
+function saveOrUnlock() {
+  const form = document.getElementById('view-new');
+  if (form.classList.contains('form-locked')) {
+    unlockDay();
+  } else {
+    saveEntry();
   }
 }
 
@@ -1394,9 +1400,11 @@ function unlockDay() {
     'Разблокировать день?',
     'Вы сможете редактировать данные. После изменений не забудьте сохранить снова.',
     'Разблокировать',
-    () => { setLocked(false); toast('День разблокирован'); }
+    () => {
+      setLocked(false);
+      toast('День разблокирован');
+    }
   );
-  // Кнопка «Разблокировать» в диалоге не должна быть красной — переопределим
   document.getElementById('apple-confirm-ok').style.color = 'var(--accent)';
 }
 
