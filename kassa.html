@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <span class=<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -395,6 +395,29 @@
   .empty { text-align:center; padding:48px 24px; color:var(--text3); font-size:14px; }
   .empty-icon { font-size:36px; margin-bottom:12px; }
 
+  /* ЗАМОРОЗКА ДНЯ */
+  .locked-bar {
+    display:none;
+    background:rgba(255,149,0,0.12);
+    border:1px solid rgba(255,149,0,0.3);
+    border-radius:var(--radius2);
+    padding:10px 14px;
+    margin-bottom:12px;
+    align-items:center;
+    gap:10px;
+  }
+  .locked-bar.visible { display:flex; }
+  .locked-bar-text { flex:1; font-size:13px; color:var(--orange); font-weight:500; }
+  .locked-bar-btn { font-size:12px; padding:5px 12px; flex-shrink:0; }
+  .form-locked input,
+  .form-locked select,
+  .form-locked textarea,
+  .form-locked button:not(.unlock-exempt) {
+    pointer-events:none;
+    opacity:0.45;
+  }
+  .form-locked .btn-primary { pointer-events:none; opacity:0.35; }
+
   input[type=number]::-webkit-inner-spin-button,
   input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; }
   input[type=number] { -moz-appearance:textfield; }
@@ -497,6 +520,12 @@
 
   <!-- TAB: ВВОД -->
   <div id="view-new">
+
+    <!-- ЗАМОРОЗКА -->
+    <div class="locked-bar" id="locked-bar">
+      <span class="locked-bar-text">🔒 День сохранён и заморожен</span>
+      <button class="btn btn-secondary locked-bar-btn unlock-exempt" onclick="unlockDay()">Разблокировать</button>
+    </div>
 
     <!-- Z-ОТЧЁТЫ -->
     <div class="section">
@@ -661,17 +690,10 @@
           <input type="date" id="stats-to" onchange="calcStats()">
         </div>
       </div>
+      <button class="btn btn-secondary" onclick="openRkoStatsModal()" style="margin-top:12px;width:100%;">📤 Статистика РКО</button>
     </div>
 
     <div class="section" id="stats-summary"></div>
-
-    <div class="section" id="stats-rko-section">
-      <div class="section-title" style="justify-content:space-between;">
-        <span>📤 РКО по видам</span>
-        <button class="btn btn-secondary btn-sm" onclick="openRkoFilterModal()" style="font-size:11px;padding:4px 10px;">🔍 Фильтр</button>
-      </div>
-      <div id="stats-rko-result"></div>
-    </div>
 
     <div class="section" id="stats-days-section">
       <div id="stats-days-list"></div>
@@ -683,7 +705,7 @@
 <!-- SAVE BAR -->
 <div class="save-bar">
   <div class="save-bar-info" id="save-info">Введите данные за день</div>
-  <button class="btn btn-primary" onclick="saveEntry()">💾 Сохранить день</button>
+  <button class="btn btn-primary" id="save-btn" onclick="saveEntry()">💾 Сохранить день</button>
 </div>
 
 <!-- MODAL: РКО СПРАВОЧНИК -->
@@ -757,21 +779,29 @@
   </div>
 </div>
 
-<!-- MODAL: ФИЛЬТР РКО В СТАТИСТИКЕ -->
-<div class="modal-overlay" id="modal-rko-filter">
+<!-- MODAL: СТАТИСТИКА РКО -->
+<div class="modal-overlay" id="modal-rko-stats">
   <div class="modal">
-    <div class="modal-title">🔍 Фильтр по виду РКО</div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">Выберите вид РКО чтобы увидеть детализацию по дням</div>
-    <select id="stats-rko-filter"
-      style="width:100%;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius3);padding:9px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;cursor:pointer;margin-bottom:14px;">
-      <option value="">— Все виды РКО —</option>
-    </select>
-    <div id="stats-rko-filter-result"></div>
+    <div class="modal-title">📤 Статистика РКО</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;" id="rko-stats-period-label">За выбранный период</div>
+
+    <div id="rko-stats-summary"></div>
+
+    <div style="margin-top:14px;border-top:1px solid var(--glass-border);padding-top:14px;">
+      <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:10px;">Фильтр по виду</div>
+      <select id="stats-rko-filter"
+        style="width:100%;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius3);padding:9px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;cursor:pointer;margin-bottom:12px;">
+        <option value="">— Все виды РКО —</option>
+      </select>
+      <div id="stats-rko-filter-result"></div>
+    </div>
+
     <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('modal-rko-filter')">Закрыть</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-rko-stats')">Закрыть</button>
     </div>
   </div>
 </div>
+
 
 <div class="toast" id="toast"></div>
 <div id="syncIndicatorKassa" style="
@@ -1132,6 +1162,7 @@ function resetForm() {
   addOnecTerminal();
 
   calc();
+  setLocked(false);
 }
 
 function loadEntry(e) {
@@ -1193,6 +1224,7 @@ function loadEntry(e) {
   loadPrevOstatok();
   loadPrevSafe();
   calc();
+  setLocked(!!e.locked);
 }
 
 // 1С — НАЛ
@@ -1339,6 +1371,36 @@ function updateSaveInfo() {
 }
 
 // SAVE
+function setLocked(locked) {
+  const form = document.getElementById('view-new');
+  const bar = document.getElementById('locked-bar');
+  const saveBtn = document.getElementById('save-btn');
+  if (locked) {
+    form.classList.add('form-locked');
+    bar.classList.add('visible');
+    saveBtn.disabled = true;
+    saveBtn.style.opacity = '0.35';
+    saveBtn.style.pointerEvents = 'none';
+  } else {
+    form.classList.remove('form-locked');
+    bar.classList.remove('visible');
+    saveBtn.disabled = false;
+    saveBtn.style.opacity = '';
+    saveBtn.style.pointerEvents = '';
+  }
+}
+
+function unlockDay() {
+  appleConfirm(
+    'Разблокировать день?',
+    'Вы сможете редактировать данные. После изменений не забудьте сохранить снова.',
+    'Разблокировать',
+    () => { setLocked(false); toast('День разблокирован'); }
+  );
+  // Кнопка «Разблокировать» в диалоге не должна быть красной — переопределим
+  document.getElementById('apple-confirm-ok').style.color = 'var(--accent)';
+}
+
 function saveEntry() {
   const date = document.getElementById('entry-date').value;
   if (!date) { toast('Укажите дату'); return; }
@@ -1365,10 +1427,10 @@ function saveEntry() {
     onecNal: getOnecNalTotal(),
     onecTerminalValues: getOnecTerminalValues(),
     onecTerminal: getOnecTerminalTotal(),
+    locked: true,
   };
 
   if (single) {
-    // К1 — копим сейф: касса в этот день уходит в 0
     const prevSafe = getPrevSafe();
     const safeAddition = nalCalc - rkoTotal + izlishek;
     const safeRkoTotal = getSafeRkoTotal();
@@ -1379,7 +1441,6 @@ function saveEntry() {
     entry.ostatokK1 = 0;
     entry.ostatokK2 = 0;
   } else {
-    // К3 — остаток физически хранится в кассе(ах)
     entry.prevOstatok = getPrevOstatok();
     entry.ostatokK1 = parseFloat(document.getElementById('ostatok-k1').value)||0;
     entry.ostatokK2 = parseFloat(document.getElementById('ostatok-k2').value)||0;
@@ -1388,13 +1449,14 @@ function saveEntry() {
   const idx = data.entries.findIndex(e => e.date === date && (e.shop||'К3') === shop);
   if (idx >= 0) {
     data.entries[idx] = entry;
-    toast('День обновлён');
+    toast('День обновлён ✓');
   } else {
     data.entries.push(entry);
     data.entries.sort((a,b) => a.date.localeCompare(b.date) || (a.shop||'').localeCompare(b.shop||''));
     toast('День сохранён ✓');
   }
   save();
+  setLocked(true);
 }
 
 // СТАТИСТИКА ЗА ПЕРИОД
@@ -1715,48 +1777,59 @@ function savePko() {
   calc();
 }
 
-// РКО ФИЛЬТР МОДАЛ
-function openRkoFilterModal() {
+// РКО СТАТИСТИКА МОДАЛ
+function openRkoStatsModal() {
+  const from = document.getElementById('stats-from').value;
+  const to = document.getElementById('stats-to').value;
+  const shop = getShop();
+
+  const label = (from && to)
+    ? `${new Date(from+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'})} — ${new Date(to+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'})} · ${shop}`
+    : 'Период не выбран';
+  document.getElementById('rko-stats-period-label').textContent = label;
+
+  // Сводка по всем видам
+  const summaryEl = document.getElementById('rko-stats-summary');
+  if (!from || !to) {
+    summaryEl.innerHTML = `<div style="color:var(--text3);font-size:13px;">Сначала выберите период в статистике</div>`;
+    document.getElementById('modal-rko-stats').classList.add('open');
+    return;
+  }
+
+  const entries = data.entries.filter(e => (e.shop||'К3') === shop && e.date >= from && e.date <= to);
+  const rkoMap = {};
+  entries.forEach(e => {
+    (e.rko||[]).forEach(r => {
+      if (!r.name) return;
+      rkoMap[r.name] = (rkoMap[r.name]||0) + r.amount;
+    });
+  });
+  const names = Object.keys(rkoMap);
+  if (!names.length) {
+    summaryEl.innerHTML = `<div style="color:var(--text3);font-size:13px;">РКО за период не найдены</div>`;
+  } else {
+    const total = names.reduce((s,n) => s + rkoMap[n], 0);
+    summaryEl.innerHTML =
+      names.map(n => `
+        <div class="diff-row">
+          <span class="lbl">${n}</span>
+          <span style="color:var(--orange)">${fmt(rkoMap[n])}</span>
+        </div>`).join('') +
+      `<div class="computed-row" style="margin-top:6px;">
+        <span class="label" style="font-weight:600;">Итого РКО</span>
+        <span class="value val-orange">${fmt(total)}</span>
+      </div>`;
+  }
+
+  // Заполняем фильтр
   const sel = document.getElementById('stats-rko-filter');
   const cur = sel.value;
   sel.innerHTML = '<option value="">— Все виды РКО —</option>' +
     data.rkoRef.map(r => `<option value="${r}" ${r===cur?'selected':''}>${r}</option>`).join('');
   sel.onchange = calcRkoFilter;
   calcRkoFilter();
-  document.getElementById('modal-rko-filter').classList.add('open');
-}
 
-function calcRkoFilter() {
-  const rkoFilter = document.getElementById('stats-rko-filter').value;
-  const resultEl = document.getElementById('stats-rko-filter-result');
-  const from = document.getElementById('stats-from').value;
-  const to = document.getElementById('stats-to').value;
-  const shop = getShop();
-
-  if (!rkoFilter) { resultEl.innerHTML = ''; return; }
-  if (!from || !to) { resultEl.innerHTML = `<div style="color:var(--text3);font-size:13px;">Сначала выберите период в статистике</div>`; return; }
-
-  const entries = data.entries.filter(e => (e.shop||'К3') === shop && e.date >= from && e.date <= to);
-  let rkoSum = 0;
-  const rows = [];
-  entries.forEach(e => {
-    (e.rko||[]).filter(r => r.name === rkoFilter).forEach(r => {
-      rkoSum += r.amount;
-      const d = new Date(e.date+'T00:00:00');
-      rows.push(`<div class="diff-row"><span class="lbl">${d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}</span><span style="color:var(--orange)">${fmt(r.amount)}</span></div>`);
-    });
-  });
-
-  if (!rows.length) {
-    resultEl.innerHTML = `<div style="color:var(--text3);font-size:13px;margin-top:8px;">Нет записей по «${rkoFilter}»</div>`;
-  } else {
-    resultEl.innerHTML = `
-      <div style="margin-top:10px;">${rows.join('')}</div>
-      <div class="computed-row" style="margin-top:6px;">
-        <span class="label" style="font-weight:600;">Итого</span>
-        <span class="value val-orange">${fmt(rkoSum)}</span>
-      </div>`;
-  }
+  document.getElementById('modal-rko-stats').classList.add('open');
 }
 
 // РКО СПРАВОЧНИК
