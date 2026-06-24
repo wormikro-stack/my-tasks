@@ -1,4 +1,4 @@
-    <span class=<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -409,14 +409,13 @@
   .locked-bar.visible { display:flex; }
   .locked-bar-text { flex:1; font-size:13px; color:var(--orange); font-weight:500; }
   .locked-bar-btn { font-size:12px; padding:5px 12px; flex-shrink:0; }
-  .form-locked input,
-  .form-locked select,
-  .form-locked textarea,
-  .form-locked button:not(.unlock-exempt) {
+  #view-new.form-locked input,
+  #view-new.form-locked select,
+  #view-new.form-locked textarea,
+  #view-new.form-locked button:not(.unlock-exempt) {
     pointer-events:none;
     opacity:0.45;
   }
-  .form-locked .btn-primary { pointer-events:none; opacity:0.35; }
 
   input[type=number]::-webkit-inner-spin-button,
   input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; }
@@ -1830,6 +1829,42 @@ function openRkoStatsModal() {
   calcRkoFilter();
 
   document.getElementById('modal-rko-stats').classList.add('open');
+}
+
+function calcRkoFilter() {
+  const rkoFilter = document.getElementById('stats-rko-filter').value;
+  const resultEl = document.getElementById('stats-rko-filter-result');
+  const from = document.getElementById('stats-from').value;
+  const to = document.getElementById('stats-to').value;
+  const shop = getShop();
+
+  if (!rkoFilter) { resultEl.innerHTML = ''; return; }
+  if (!from || !to) {
+    resultEl.innerHTML = `<div style="color:var(--text3);font-size:13px;">Сначала выберите период в статистике</div>`;
+    return;
+  }
+
+  const entries = data.entries.filter(e => (e.shop||'К3') === shop && e.date >= from && e.date <= to);
+  let rkoSum = 0;
+  const rows = [];
+  entries.forEach(e => {
+    (e.rko||[]).filter(r => r.name === rkoFilter).forEach(r => {
+      rkoSum += r.amount;
+      const d = new Date(e.date+'T00:00:00');
+      rows.push(`<div class="diff-row"><span class="lbl">${d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}</span><span style="color:var(--orange)">${fmt(r.amount)}</span></div>`);
+    });
+  });
+
+  if (!rows.length) {
+    resultEl.innerHTML = `<div style="color:var(--text3);font-size:13px;margin-top:8px;">Нет записей по «${rkoFilter}»</div>`;
+  } else {
+    resultEl.innerHTML = `
+      <div style="margin-top:10px;">${rows.join('')}</div>
+      <div class="computed-row" style="margin-top:6px;">
+        <span class="label" style="font-weight:600;">Итого</span>
+        <span class="value val-orange">${fmt(rkoSum)}</span>
+      </div>`;
+  }
 }
 
 // РКО СПРАВОЧНИК
