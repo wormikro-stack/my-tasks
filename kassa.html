@@ -502,6 +502,9 @@
     <button class="btn btn-secondary btn-sm" onclick="showTab('stats')" id="tab-stats-btn">📊 Статистика</button>
     <button class="btn btn-secondary btn-sm" onclick="showTab('history')" id="tab-history-btn">🕐 История</button>
     <button class="btn btn-secondary btn-sm" onclick="showTab('new')" id="tab-new-btn" style="display:none">✏️ Ввод</button>
+    <button class="btn btn-secondary btn-sm" onclick="exportBackup()" title="Скачать резервную копию">💾 Бэкап</button>
+    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('importBackupInput').click()" title="Восстановить из файла">📂 Восстановить</button>
+    <input type="file" id="importBackupInput" accept=".json" style="display:none" onchange="importBackup(event)">
   </div>
   <div class="header-row2">
     <select class="header-shop-select" id="shop-select" onchange="onShopChange()">
@@ -1976,6 +1979,71 @@ function confirmRemoveRow(id) {
 
 function removeEl(id) { const el=document.getElementById(id); if(el)el.remove(); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function exportBackup() {
+  const payload = {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    kassaData: data
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'kassa_backup_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Бэкап скачан');
+}
+
+function importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const payload = JSON.parse(e.target.result);
+      const imported = payload.kassaData || payload;
+      if (!imported.entries || !Array.isArray(imported.entries)) {
+        toast('Неверный формат файла'); return;
+      }
+
+      // Считаем сколько новых записей
+      const existingKeys = new Set(data.entries.map(e => e.date + '|' + (e.shop||'К3')));
+      const newEntries = imported.entries.filter(e => !existingKeys.has(e.date + '|' + (e.shop||'К3')));
+      const dupCount = imported.entries.length - newEntries.length;
+
+      let msg = `Файл от ${(payload.savedAt||'').slice(0,10) || 'неизвестной даты'}.\n`;
+      msg += `Новых записей: ${newEntries.length}`;
+      if (dupCount > 0) msg += `, дублей (пропущено): ${dupCount}`;
+      msg += '.';
+
+      appleConfirm(
+        'Восстановить из файла?',
+        msg,
+        'Восстановить',
+        () => {
+          // Мержим: существующие остаются, новые добавляются
+          data.entries = [...data.entries, ...newEntries]
+            .sort((a,b) => a.date.localeCompare(b.date) || (a.shop||'').localeCompare(b.shop||''));
+
+          // Мержим справочник РКО без дублей
+          const rkoSet = new Set(data.rkoRef);
+          (imported.rkoRef||[]).forEach(r => rkoSet.add(r));
+          data.rkoRef = Array.from(rkoSet);
+
+          localStorage.setItem('kassa_data2', JSON.stringify(data));
+          toast(`Восстановлено: +${newEntries.length} записей ✓`);
+          location.reload();
+        }
+      );
+      document.getElementById('apple-confirm-ok').style.color = 'var(--accent)';
+    } catch(err) {
+      toast('Ошибка чтения файла');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
 function save() { localStorage.setItem('kassa_data2', JSON.stringify(data)); autoSaveToCloud(); }
 
 // ==========================================
