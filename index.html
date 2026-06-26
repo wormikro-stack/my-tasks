@@ -2200,12 +2200,19 @@ function incompleteToggle(id) {
 }
 
 function incompleteDelete(id) {
-  if (confirm('Удалить это задание?')) {
-    todos = todos.filter(t => t.id !== id);
-    saveToStorage();
-    renderIncomplete();
-    showToast('Задание удалено');
-  }
+  const item = todos.find(t => t.id === id);
+  if (!item) return;
+  
+  // Отправляем копию задачи в корзину с отметкой времени удаления
+  trash.push({ ...item, deletedAt: new Date().toISOString() });
+  
+  // Убираем задачу из основного списка
+  todos = todos.filter(t => t.id !== id);
+  
+  // Сохраняем изменения и обновляем списки
+  saveToStorage();
+  renderIncomplete();
+  showToast('Перемещено в корзину 🗑️');
 }
 
 function incompleteMoveOne(id) {
