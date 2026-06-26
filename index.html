@@ -324,6 +324,22 @@
     .task-item { padding: 12px 10px; gap: 8px; }
     .task-title { font-size: 13px; }
     .btn-sm { font-size: 11px; padding: 5px 9px; }
+    /* Сдвигаем окна выше на мобильных */
+    .modal-overlay {
+      padding-top: 15px !important; /* Поднимаем окно ближе к верху экрана (сэкономили 45px) */
+    }
+    .modal {
+      padding: 16px !important; /* Уменьшаем внутренние поля модалки (сэкономили 12px) */
+      max-height: calc(100vh - 30px) !important;
+    }
+    /* Делаем само поле ввода чуть ниже */
+    #taskName {
+      min-height: 60px !important; /* Сжали высоту текстового поля (сэкономили 20px) */
+    }
+    /* Сжимаем вертикальные расстояния между элементами */
+    .form-group {
+      margin-bottom: 10px !important; /* Плотнее прижимаем строки друг к другу (сэкономили еще около 16px) */
+    }
   }
 
   .toast {
