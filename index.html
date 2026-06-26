@@ -1036,8 +1036,14 @@ function render() {
     catFilterEl.innerHTML =
   `<button class="cat-pill ${mainCatFilter===null?'active':''}" onclick="setMainCatFilter(null)">Все</button>` +
   usedCats.map(c => {
+    catFilterEl.innerHTML =
+  `<button class="cat-pill ${mainCatFilter===null?'active':''}" onclick="setMainCatFilter(null)">Все</button>` +
+  usedCats.map(c => {
     const isActive = Array.isArray(mainCatFilter) && mainCatFilter.includes(c);
-    return `<button class="cat-pill ${isActive?'active':''}" onclick="setMainCatFilter('${esc(c)}')">${esc(c)}</button>`;
+    return `<button class="cat-pill ${isActive?'active':''}" onclick="setMainCatFilter(${JSON.stringify(c)})">
+      ${esc(c)}
+    </button>`;
+  }).join('');
   }).join('');
   } else {
     catFilterEl.style.display = 'none';
@@ -1402,7 +1408,7 @@ function folderMatchesDate(folder, dateStr) {
 
 function saveAsTemplate() {
   const name = document.getElementById('taskName').value.trim();
-  const category = document.getElementById('taskCategory').value;
+  const category = getSelectedCategories();
   if (!name) { showToast('Введите название для шаблона'); return; }
 
   // Если нет папок — создаём сразу без выбора
@@ -2046,7 +2052,9 @@ function renderIncomplete() {
 
   // Рендер пилюль категорий для долгов
   const catFilterEl = document.getElementById('incompleteCatFilter');
-  const usedCats = [...new Set(filtered.map(t => t.category).filter(Boolean))];
+  const usedCats = [...new Set(filtered.flatMap(t =>
+  Array.isArray(t.category) ? t.category : (t.category ? [t.category] : [])
+))];
   if (usedCats.length > 1) {
     catFilterEl.style.display = 'flex';
     catFilterEl.innerHTML =
@@ -2061,7 +2069,10 @@ function renderIncomplete() {
   }
 
   // Применяем фильтр категории
-  if (incompleteCatFilter) filtered = filtered.filter(t => t.category === incompleteCatFilter);
+  if (incompleteCatFilter) filtered = filtered.filter(t => {
+  const cats = Array.isArray(t.category) ? t.category : (t.category ? [t.category] : []);
+  return cats.includes(incompleteCatFilter);
+});
 
   // Группируем по дате
   const groups = {};
