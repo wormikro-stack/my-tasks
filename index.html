@@ -1029,9 +1029,8 @@ function render() {
   ))];
 
   // Если выбранная категория больше не встречается — сбрасываем фильтр
-  if (Array.isArray(mainCatFilter)) {
-    mainCatFilter = mainCatFilter.filter(f => usedCats.includes(f));
-    if (!mainCatFilter.length) mainCatFilter = null;
+  if (mainCatFilter && !usedCats.includes(mainCatFilter)) {
+    mainCatFilter = null;
   }
 
   if (usedCats.length > 0) {
@@ -1039,7 +1038,7 @@ function render() {
     catFilterEl.innerHTML =
       `<button class="cat-pill ${mainCatFilter===null?'active':''}" onclick="setMainCatFilter(null)">Все</button>` +
       usedCats.map(c => {
-        const isActive = Array.isArray(mainCatFilter) && mainCatFilter.includes(c);
+        const isActive = mainCatFilter === c;
         return `<button class="cat-pill ${isActive?'active':''}" onclick="setMainCatFilter(${JSON.stringify(c)})">${esc(c)}</button>`;
       }).join('');
   } else {
@@ -1049,12 +1048,10 @@ function render() {
 
   // Применяем фильтр категории
   if (mainCatFilter) {
-  filtered = filtered.filter(t => {
-    const cats = Array.isArray(t.category) ? t.category : (t.category ? [t.category] : []);
-    return mainCatFilter.some(f => cats.includes(f));
-  });
-    // При выборе конкретной категории показываем только невыполненные (новые) задания
-    filtered = filtered.filter(t => !t.completed);
+    filtered = filtered.filter(t => {
+      const cats = Array.isArray(t.category) ? t.category : (t.category ? [t.category] : []);
+      return cats.includes(mainCatFilter);
+    });
   }
 
   filtered.sort((a, b) => a.completed - b.completed);
@@ -1110,15 +1107,7 @@ function render() {
 }
 
 function setMainCatFilter(cat) {
-  if (cat === null) {
-    mainCatFilter = null;
-  } else {
-    if (!Array.isArray(mainCatFilter)) mainCatFilter = [];
-    const idx = mainCatFilter.indexOf(cat);
-    if (idx === -1) mainCatFilter.push(cat);
-    else mainCatFilter.splice(idx, 1);
-    if (!mainCatFilter.length) mainCatFilter = null;
-  }
+  mainCatFilter = (mainCatFilter === cat) ? null : cat;
   render();
 }
 
