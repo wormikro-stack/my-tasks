@@ -2081,7 +2081,7 @@ function resetToken() {
 let incompletePeriodDays = 7;
 
 function openIncompleteModal() {
-  incompletePeriodDays = 7;
+  incompletePeriodDays = 0;
   incompleteCatFilter = null;
   document.querySelectorAll('.period-tab').forEach((t,i) => t.classList.toggle('active', i === 2));
   renderIncomplete();
