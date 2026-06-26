@@ -578,10 +578,10 @@
       </div>
     </div>
     <div class="form-group">
-  <div class="form-label">Категории</div>
-  <div id="taskCategoryDisplay" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:24px;"></div>
-  <button type="button" class="btn btn-secondary" style="width:100%;" onclick="openCategoryPicker()">🏷️ Выбрать категории</button>
-</div>
+      <div class="form-label">Категория</div>
+      <select class="form-select" id="taskCategory">
+      </select>
+    </div>
     <button class="btn btn-secondary" style="width:100%; margin-bottom: 4px; font-size: 12px;" onclick="saveAsTemplate()">📋 Сохранить как шаблон</button>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalTask')">Отмена</button>
@@ -915,18 +915,6 @@
   </div>
 </div>
 
-  <!-- ОКНО ВЫБОРА КАТЕГОРИЙ -->
-<div class="modal-overlay" id="modalCategoryPicker">
-  <div class="modal">
-    <div class="modal-title">🏷️ Выберите категории</div>
-    <div id="categoryPickerList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;"></div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('modalCategoryPicker')">Отмена</button>
-      <button class="btn btn-primary" onclick="confirmCategoryPick()">Готово</button>
-    </div>
-  </div>
-</div>
-  
  <!-- КОРЗИНА -->
 <div class="modal-overlay" id="modalTrash">
   <div class="modal">
@@ -1024,22 +1012,18 @@ function render() {
   // ещё остались невыполненные задания. Если все задания категории выполнены,
   // её кнопка пропадает из списка.
   const catFilterEl = document.getElementById('mainCatFilter');
-  const usedCats = [...new Set(filtered.flatMap(t =>
-    Array.isArray(t.category) ? t.category : (t.category ? [t.category] : [])
-  ))];
-
-  // Если выбранная категория больше не встречается — сбрасываем фильтр
+  const usedCats = [...new Set(filtered.filter(t => !t.completed).map(t => t.category).filter(Boolean))];
+  // Если выбранная категория больше не содержит невыполненных заданий — сбрасываем фильтр на "Все"
   if (mainCatFilter && !usedCats.includes(mainCatFilter)) {
     mainCatFilter = null;
   }
-
-  if (usedCats.length > 0) {
+  if (usedCats.length > 1) {
     catFilterEl.style.display = 'flex';
     catFilterEl.innerHTML =
       `<button class="cat-pill ${mainCatFilter===null?'active':''}" onclick="setMainCatFilter(null)">Все</button>` +
       usedCats.map(c => {
-        const isActive = mainCatFilter === c;
-        return `<button class="cat-pill ${isActive?'active':''}" onclick="setMainCatFilter(${JSON.stringify(c)})">${esc(c)}</button>`;
+        const label = c;
+        return `<button class="cat-pill ${mainCatFilter===c?'active':''}" onclick="setMainCatFilter('${esc(c)}')">${esc(label)}</button>`;
       }).join('');
   } else {
     catFilterEl.style.display = 'none';
@@ -1048,10 +1032,9 @@ function render() {
 
   // Применяем фильтр категории
   if (mainCatFilter) {
-    filtered = filtered.filter(t => {
-      const cats = Array.isArray(t.category) ? t.category : (t.category ? [t.category] : []);
-      return cats.includes(mainCatFilter);
-    });
+    filtered = filtered.filter(t => t.category === mainCatFilter);
+    // При выборе конкретной категории показываем только невыполненные (новые) задания
+    filtered = filtered.filter(t => !t.completed);
   }
 
   filtered.sort((a, b) => a.completed - b.completed);
@@ -1069,8 +1052,7 @@ function render() {
   } else {
     empty.style.display = 'none';
     filtered.forEach(item => {
-      const cats = Array.isArray(item.category) ? item.category : (item.category ? [item.category] : []);
-      const isMobile = window.innerWidth < 600;
+      const catLabel = item.category;
       const div = document.createElement('div');
       div.className = `task-item ${item.completed ? 'completed' : ''}`;
       let timeHtml = '';
@@ -1090,7 +1072,7 @@ function render() {
         <div class="checkbox-wrapper" onclick="toggleComplete('${item.id}')"><div class="custom-checkbox"></div></div>
         <div class="task-content">
           <div class="task-title">${esc(item.name)}</div>
-          <div class="task-meta">${isMobile ? `<span class="task-tag">${esc(cats[0]||'')}</span>` : cats.map(c=>`<span class="task-tag">${esc(c)}</span>`).join('')}<span>📅 ${formatDate(item.date)}</span>${timeHtml}</div>
+          <div class="task-meta"><span class="task-tag">${esc(catLabel)}</span><span>📅 ${formatDate(item.date)}</span>${timeHtml}</div>
         </div>
         <div class="task-actions">
           ${startBtnHtml}
@@ -1107,7 +1089,7 @@ function render() {
 }
 
 function setMainCatFilter(cat) {
-  mainCatFilter = (mainCatFilter === cat) ? null : cat;
+  mainCatFilter = cat;
   render();
 }
 
@@ -1120,45 +1102,10 @@ function updateStats(filteredItems) {
 }
 
 function populateCategorySelect(selectedVal) {
-  const selected = Array.isArray(selectedVal) ? selectedVal : (selectedVal ? [selectedVal] : []);
-  window._pickedCategories = [...selected];
-  renderTaskCategoryDisplay();
-}
-
-function renderTaskCategoryDisplay() {
-  const display = document.getElementById('taskCategoryDisplay');
-  if (!display) return;
-  if (!window._pickedCategories || !window._pickedCategories.length) {
-    display.innerHTML = '<span style="font-size:12px;color:var(--text3);">Не выбрано</span>';
-  } else {
-    display.innerHTML = window._pickedCategories.map(c =>
-      `<span class="cat-pill active" style="cursor:default;">${esc(c)}</span>`
-    ).join('');
-  }
-}
-
-function openCategoryPicker() {
-  const list = document.getElementById('categoryPickerList');
-  const picked = window._pickedCategories || [];
-  list.innerHTML = categories.map(c => {
-    const active = picked.includes(c.name);
-    return `<button type="button" class="cat-pill ${active ? 'active' : ''}" onclick="this.classList.toggle('active')">${esc(c.name)}</button>`;
-  }).join('');
-  openModal('modalCategoryPicker');
-}
-
-function confirmCategoryPick() {
-  window._pickedCategories = [...document.querySelectorAll('#categoryPickerList .cat-pill.active')].map(b => b.textContent);
-  renderTaskCategoryDisplay();
-  closeModal('modalCategoryPicker');
-}
-
-function toggleCatPick(btn, name) {
-  btn.classList.toggle('active');
-}
-
-function getSelectedCategories() {
-  return window._pickedCategories || [];
+  const sel = document.getElementById('taskCategory');
+  sel.innerHTML = categories.map(c =>
+    `<option value="${esc(c.name)}" ${c.name===selectedVal?'selected':''}>${esc(c.name)}</option>`
+  ).join('');
 }
 
 function openAddTask() {
@@ -1183,19 +1130,18 @@ function openEditTask(id, event) {
   document.getElementById('taskDate').value = item.date;
   document.getElementById('taskTimeStart').value = item.timeStart || '';
   document.getElementById('taskTimeEnd').value = item.timeEnd || '';
-  populateCategorySelect(Array.isArray(item.category) ? item.category : (item.category ? [item.category] : []));
+  populateCategorySelect(item.category);
   openModal('modalTask');
 }
 
 function saveTask() {
   const name = document.getElementById('taskName').value.trim();
   const date = document.getElementById('taskDate').value;
-  const category = getSelectedCategories();
+  const category = document.getElementById('taskCategory').value;
   const timeStart = document.getElementById('taskTimeStart').value || null;
   const timeEnd = document.getElementById('taskTimeEnd').value || null;
   if (!name) { showToast('Введите название задания'); return; }
   if (!date) { showToast('Выберите дату'); return; }
-  if (!category.length) { showToast('Выберите хотя бы одну категорию'); return; }
 
   if (editingTaskId) {
     const item = todos.find(t => t.id === editingTaskId);
@@ -1394,7 +1340,7 @@ function folderMatchesDate(folder, dateStr) {
 
 function saveAsTemplate() {
   const name = document.getElementById('taskName').value.trim();
-  const category = getSelectedCategories();
+  const category = document.getElementById('taskCategory').value;
   if (!name) { showToast('Введите название для шаблона'); return; }
 
   // Если нет папок — создаём сразу без выбора
@@ -2038,9 +1984,7 @@ function renderIncomplete() {
 
   // Рендер пилюль категорий для долгов
   const catFilterEl = document.getElementById('incompleteCatFilter');
-  const usedCats = [...new Set(filtered.flatMap(t =>
-  Array.isArray(t.category) ? t.category : (t.category ? [t.category] : [])
-))];
+  const usedCats = [...new Set(filtered.map(t => t.category).filter(Boolean))];
   if (usedCats.length > 1) {
     catFilterEl.style.display = 'flex';
     catFilterEl.innerHTML =
@@ -2055,10 +1999,7 @@ function renderIncomplete() {
   }
 
   // Применяем фильтр категории
-  if (incompleteCatFilter) filtered = filtered.filter(t => {
-  const cats = Array.isArray(t.category) ? t.category : (t.category ? [t.category] : []);
-  return cats.includes(incompleteCatFilter);
-});
+  if (incompleteCatFilter) filtered = filtered.filter(t => t.category === incompleteCatFilter);
 
   // Группируем по дате
   const groups = {};
@@ -2091,14 +2032,13 @@ function renderIncomplete() {
           <span class="day-group-count">${items.length}</span>
         </div>
         ${items.map(item => {
-          const cats = Array.isArray(item.category) ? item.category : (item.category ? [item.category] : []);
-          const isMobile = window.innerWidth < 600;
+          const catLabel = item.category;
           return `
           <div class="task-item" id="inc_${item.id}">
             <div class="checkbox-wrapper" onclick="incompleteToggle('${item.id}')"><div class="custom-checkbox"></div></div>
             <div class="task-content">
               <div class="task-title">${esc(item.name)}</div>
-              <div class="task-meta">${isMobile ? `<span class="task-tag">${esc(cats[0]||'')}</span>` : cats.map(c=>`<span class="task-tag">${esc(c)}</span>`).join('')}</div>
+              <div class="task-meta"><span class="task-tag">${esc(catLabel)}</span></div>
             </div>
             <div class="task-actions" style="opacity:1; pointer-events:auto;">
               <button class="btn btn-orange btn-icon btn-sm" title="Перенести" onclick="incompleteMoveOne('${item.id}')">↷</button>
