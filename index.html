@@ -578,8 +578,9 @@
       </div>
     </div>
     <div class="form-group">
-  <div class="form-label">Категории (можно выбрать несколько)</div>
-  <div id="taskCategoryPicker" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);border-radius:var(--radius3);min-height:42px;"></div>
+  <div class="form-label">Категории</div>
+  <div id="taskCategoryDisplay" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:24px;"></div>
+  <button type="button" class="btn btn-secondary" style="width:100%;" onclick="openCategoryPicker()">🏷️ Выбрать категории</button>
 </div>
     <button class="btn btn-secondary" style="width:100%; margin-bottom: 4px; font-size: 12px;" onclick="saveAsTemplate()">📋 Сохранить как шаблон</button>
     <div class="modal-actions">
@@ -914,6 +915,18 @@
   </div>
 </div>
 
+  <!-- ОКНО ВЫБОРА КАТЕГОРИЙ -->
+<div class="modal-overlay" id="modalCategoryPicker">
+  <div class="modal">
+    <div class="modal-title">🏷️ Выберите категории</div>
+    <div id="categoryPickerList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalCategoryPicker')">Отмена</button>
+      <button class="btn btn-primary" onclick="confirmCategoryPick()">Готово</button>
+    </div>
+  </div>
+</div>
+  
  <!-- КОРЗИНА -->
 <div class="modal-overlay" id="modalTrash">
   <div class="modal">
@@ -1115,13 +1128,37 @@ function updateStats(filteredItems) {
 }
 
 function populateCategorySelect(selectedVal) {
-  // selectedVal может быть строкой (старый формат) или массивом (новый)
   const selected = Array.isArray(selectedVal) ? selectedVal : (selectedVal ? [selectedVal] : []);
-  const picker = document.getElementById('taskCategoryPicker');
-  picker.innerHTML = categories.map(c => {
-    const active = selected.includes(c.name);
-    return `<button type="button" class="cat-pill ${active ? 'active' : ''}" onclick="toggleCatPick(this,'${esc(c.name)}')">${esc(c.name)}</button>`;
+  window._pickedCategories = [...selected];
+  renderTaskCategoryDisplay();
+}
+
+function renderTaskCategoryDisplay() {
+  const display = document.getElementById('taskCategoryDisplay');
+  if (!display) return;
+  if (!window._pickedCategories || !window._pickedCategories.length) {
+    display.innerHTML = '<span style="font-size:12px;color:var(--text3);">Не выбрано</span>';
+  } else {
+    display.innerHTML = window._pickedCategories.map(c =>
+      `<span class="cat-pill active" style="cursor:default;">${esc(c)}</span>`
+    ).join('');
+  }
+}
+
+function openCategoryPicker() {
+  const list = document.getElementById('categoryPickerList');
+  const picked = window._pickedCategories || [];
+  list.innerHTML = categories.map(c => {
+    const active = picked.includes(c.name);
+    return `<button type="button" class="cat-pill ${active ? 'active' : ''}" onclick="this.classList.toggle('active')">${esc(c.name)}</button>`;
   }).join('');
+  openModal('modalCategoryPicker');
+}
+
+function confirmCategoryPick() {
+  window._pickedCategories = [...document.querySelectorAll('#categoryPickerList .cat-pill.active')].map(b => b.textContent);
+  renderTaskCategoryDisplay();
+  closeModal('modalCategoryPicker');
 }
 
 function toggleCatPick(btn, name) {
@@ -1129,7 +1166,7 @@ function toggleCatPick(btn, name) {
 }
 
 function getSelectedCategories() {
-  return [...document.querySelectorAll('#taskCategoryPicker .cat-pill.active')].map(b => b.textContent);
+  return window._pickedCategories || [];
 }
 
 function openAddTask() {
