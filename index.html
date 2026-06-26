@@ -1024,27 +1024,24 @@ function render() {
   // ещё остались невыполненные задания. Если все задания категории выполнены,
   // её кнопка пропадает из списка.
   const catFilterEl = document.getElementById('mainCatFilter');
-  const usedCats = [...new Set(filtered.filter(t => !t.completed).flatMap(t =>
-  Array.isArray(t.category) ? t.category : (t.category ? [t.category] : [])
-))];
-  // Если выбранная категория больше не содержит невыполненных заданий — сбрасываем фильтр на "Все"
-  if (mainCatFilter && !usedCats.includes(mainCatFilter)) {
-    mainCatFilter = null;
+  const usedCats = [...new Set(filtered.flatMap(t =>
+    Array.isArray(t.category) ? t.category : (t.category ? [t.category] : [])
+  ))];
+
+  // Если выбранная категория больше не встречается — сбрасываем фильтр
+  if (Array.isArray(mainCatFilter)) {
+    mainCatFilter = mainCatFilter.filter(f => usedCats.includes(f));
+    if (!mainCatFilter.length) mainCatFilter = null;
   }
-  if (usedCats.length > 1) {
+
+  if (usedCats.length > 0) {
     catFilterEl.style.display = 'flex';
     catFilterEl.innerHTML =
-  `<button class="cat-pill ${mainCatFilter===null?'active':''}" onclick="setMainCatFilter(null)">Все</button>` +
-  usedCats.map(c => {
-    catFilterEl.innerHTML =
-  `<button class="cat-pill ${mainCatFilter===null?'active':''}" onclick="setMainCatFilter(null)">Все</button>` +
-  usedCats.map(c => {
-    const isActive = Array.isArray(mainCatFilter) && mainCatFilter.includes(c);
-    return `<button class="cat-pill ${isActive?'active':''}" onclick="setMainCatFilter(${JSON.stringify(c)})">
-      ${esc(c)}
-    </button>`;
-  }).join('');
-  }).join('');
+      `<button class="cat-pill ${mainCatFilter===null?'active':''}" onclick="setMainCatFilter(null)">Все</button>` +
+      usedCats.map(c => {
+        const isActive = Array.isArray(mainCatFilter) && mainCatFilter.includes(c);
+        return `<button class="cat-pill ${isActive?'active':''}" onclick="setMainCatFilter(${JSON.stringify(c)})">${esc(c)}</button>`;
+      }).join('');
   } else {
     catFilterEl.style.display = 'none';
     mainCatFilter = null;
