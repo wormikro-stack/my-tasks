@@ -579,7 +579,10 @@
     </div>
     <div class="form-group">
       <div class="form-label">Категории</div>
-      <div id="taskCategoriesWrap" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openCategoriesSelector('taskCategoriesWrap', 'selectedCategoriesPreview')">🏷️ Выбрать категории</button>
+        <div id="selectedCategoriesPreview" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
+      </div>
     </div>
     <button class="btn btn-secondary" style="width:100%; margin-bottom: 4px; font-size: 12px;" onclick="saveAsTemplate()">📋 Сохранить как шаблон</button>
     <div class="modal-actions">
@@ -683,7 +686,10 @@
     </div>
     <div class="form-group">
       <div class="form-label">Категории</div>
-      <div id="editTplTaskCategoriesWrap" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openCategoriesSelector('editTplTaskCategoriesWrap', 'selectedTplCategoriesPreview')">🏷️ Выбрать категории</button>
+        <div id="selectedTplCategoriesPreview" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalEditTplTask')">Отмена</button>
@@ -914,6 +920,21 @@
   </div>
 </div>
 
+<!-- Окно выбора категорий -->
+<div class="modal-overlay" id="modalSelectCategories" style="z-index: 800;">
+  <div class="modal">
+    <div class="modal-title">Выберите категории</div>
+    
+    <!-- Сюда временно помещаются списки пилюль -->
+    <div id="taskCategoriesWrap" style="display:none; flex-wrap:wrap; gap:6px; margin-bottom:20px;"></div>
+    <div id="editTplTaskCategoriesWrap" style="display:none; flex-wrap:wrap; gap:6px; margin-bottom:20px;"></div>
+    
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeCategoriesSelector()">Готово</button>
+    </div>
+  </div>
+</div>
+  
  <!-- КОРЗИНА -->
 <div class="modal-overlay" id="modalTrash">
   <div class="modal">
@@ -958,6 +979,39 @@
 </div>
 
 <script>
+
+let currentPreviewId = null;
+let currentWrapId = null;
+
+function openCategoriesSelector(wrapId, previewId) {
+  currentWrapId = wrapId;
+  currentPreviewId = previewId;
+  
+  // Скрываем оба списка, показываем только нужный в модальном окне
+  document.getElementById('taskCategoriesWrap').style.display = 'none';
+  document.getElementById('editTplTaskCategoriesWrap').style.display = 'none';
+  document.getElementById(wrapId).style.display = 'flex';
+  
+  openModal('modalSelectCategories');
+}
+
+function closeCategoriesSelector() {
+  closeModal('modalSelectCategories');
+  updateCategoryPreview();
+}
+
+function updateCategoryPreview() {
+  if (!currentWrapId || !currentPreviewId) return;
+  const selected = getSelectedCategoriesFromSelector(currentWrapId);
+  const previewEl = document.getElementById(currentPreviewId);
+  
+  if (selected.length === 0) {
+    previewEl.innerHTML = '<span style="font-size:12px; color:var(--text3)">Не выбрано</span>';
+  } else {
+    previewEl.innerHTML = selected.map(c => `<span class="task-tag">${esc(c)}</span>`).join('');
+  }
+}  
+  
 // ОСНОВНЫЕ ДАННЫЕ
 let todos = JSON.parse(localStorage.getItem('todo_items') || '[]');
 let trash = JSON.parse(localStorage.getItem('todo_trash') || '[]');
@@ -1128,6 +1182,9 @@ function openAddTask() {
   document.getElementById('taskTimeStart').value = '';
   document.getElementById('taskTimeEnd').value = '';
   renderCategorySelector('taskCategoriesWrap', categories[0] ? [categories[0].name] : []);
+  currentWrapId = 'taskCategoriesWrap';
+currentPreviewId = 'selectedCategoriesPreview';
+updateCategoryPreview();
   openModal('modalTask');
   setTimeout(() => document.getElementById('taskName').focus(), 50);
 }
@@ -1144,6 +1201,9 @@ function openEditTask(id, event) {
   document.getElementById('taskTimeEnd').value = item.timeEnd || '';
   const itemCats = item.categories || (item.category ? [item.category] : []);
   renderCategorySelector('taskCategoriesWrap', itemCats);
+  currentWrapId = 'taskCategoriesWrap';
+currentPreviewId = 'selectedCategoriesPreview';
+updateCategoryPreview();
   openModal('modalTask');
 }
 
@@ -1576,6 +1636,9 @@ function openEditTplTask(folderId, taskId) {
   
   const tCats = task.categories || (task.category ? [task.category] : []);
   renderCategorySelector('editTplTaskCategoriesWrap', tCats);
+  currentWrapId = 'editTplTaskCategoriesWrap';
+currentPreviewId = 'selectedTplCategoriesPreview';
+updateCategoryPreview();
   openModal('modalEditTplTask');
 }
 
