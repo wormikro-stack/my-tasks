@@ -1425,14 +1425,17 @@ function clearTrash() {
 }
   
 function deleteTask(id, event) {
-  event.stopPropagation();
+  if (event) event.stopPropagation();
   const item = todos.find(t => t.id === id);
   if (!item) return;
-  trash.push({ ...item, deletedAt: new Date().toISOString() });
-  todos = todos.filter(t => t.id !== id);
-  saveToStorage();
-  showToast('Перемещено в корзину 🗑️');
-}
+  
+  appleConfirm('Удалить задачу?', `Перенести задачу "${item.name}" в корзину?`, true, () => {
+    trash.push({ ...item, deletedAt: new Date().toISOString() });
+    todos = todos.filter(t => t.id !== id);
+    saveToStorage();
+    showToast('Перемещено в корзину 🗑️');
+  });
+}  
 
 // ПЕРЕНОС ОДНОГО ЗАДАНИЯ
 function openMoveOne(id, event) {
@@ -2274,16 +2277,13 @@ function incompleteDelete(id) {
   const item = todos.find(t => t.id === id);
   if (!item) return;
   
-  // Отправляем копию задачи в корзину с отметкой времени удаления
-  trash.push({ ...item, deletedAt: new Date().toISOString() });
-  
-  // Убираем задачу из основного списка
-  todos = todos.filter(t => t.id !== id);
-  
-  // Сохраняем изменения и обновляем списки
-  saveToStorage();
-  renderIncomplete();
-  showToast('Перемещено в корзину 🗑️');
+  appleConfirm('Удалить задачу?', `Перенести задачу "${item.name}" в корзину?`, true, () => {
+    trash.push({ ...item, deletedAt: new Date().toISOString() });
+    todos = todos.filter(t => t.id !== id);
+    saveToStorage();
+    renderIncomplete();
+    showToast('Перемещено в корзину 🗑️');
+  });
 }
 
 function incompleteMoveOne(id) {
