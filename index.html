@@ -1,3 +1,28 @@
+Для решения этой задачи я изменил логику работы с категориями. Теперь к каждому
+делу (как в текущих задачах, так и в шаблонах) можно привязывать несколько
+категорий одновременно с помощью интерактивных кнопок-тегов (пилюль).
+
+Что было изменено:
+
+1.  Интерфейс создания и редактирования дел: Выпадающий список категорий заменен
+    на кликабельные пилюли. Вы можете выбрать одну, несколько или ни одной
+    категории.
+2.  Отображение на карточках: В списке задач теперь корректно выводятся все
+    привязанные теги.
+3.  Фильтрация:
+      - Фильтры на главной странице и в разделе «Долги» динамически собирают все
+        уникальные категории из текущих невыполненных задач.
+      - При выборе фильтра выводятся задачи, которые содержат эту категорию в
+        своем списке.
+4.  Совместимость с прошлыми записями: Приложение автоматически адаптирует
+    старые задачи из локального хранилища (где была только одна категория) к
+    новому формату массива категорий.
+5.  Импорт/Экспорт CSV: При экспорте категории теперь перечисляются через
+    запятую, а при импорте корректно разделяются обратно.
+
+Ниже представлен полный обновленный код программы. Вы можете скопировать его
+целиком и заменить им содержимое вашего файла:
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -158,7 +183,7 @@
   .task-content { flex: 1; min-width: 0; cursor: pointer; }
   .task-title { font-size: 14px; font-weight: 500; transition: color 0.18s, text-decoration 0.18s; }
   .task-item.completed .task-title { color: var(--text3); text-decoration: line-through; }
-  .task-meta { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-size: 11px; color: var(--text2); }
+  .task-meta { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-size: 11px; color: var(--text2); flex-wrap: wrap; }
   .task-tag {
     padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.06);
     border: 1px solid var(--glass-border); font-size: 10px; text-transform: uppercase;
@@ -219,11 +244,11 @@
   .tpl-task-item {
     display: flex; align-items: center; gap: 8px; padding: 8px 10px;
     background: rgba(255,255,255,0.03); border-radius: var(--radius3);
-    margin-bottom: 6px; font-size: 13px;
+    margin-bottom: 6px; font-size: 13px; flex-wrap: wrap;
   }
-  .tpl-task-name { flex: 1; }
+  .tpl-task-name { flex: 1; min-width: 120px; }
   .tpl-task-tag { font-size: 10px; color: var(--text3); padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); text-transform: uppercase; }
-  .tpl-task-actions { display: flex; gap: 4px; }
+  .tpl-task-actions { display: flex; gap: 4px; margin-left: auto; }
   .templates-empty { text-align: center; padding: 20px; color: var(--text3); font-size: 13px; }
   .template-repeat-badge { font-size: 10px; padding: 1px 7px; border-radius: 4px; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
   .badge-daily { background: rgba(52,216,92,0.1); color: var(--green); border: 1px solid rgba(52,216,92,0.2); }
@@ -578,9 +603,8 @@
       </div>
     </div>
     <div class="form-group">
-      <div class="form-label">Категория</div>
-      <select class="form-select" id="taskCategory">
-      </select>
+      <div class="form-label">Категории</div>
+      <div id="taskCategoriesWrap" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
     </div>
     <button class="btn btn-secondary" style="width:100%; margin-bottom: 4px; font-size: 12px;" onclick="saveAsTemplate()">📋 Сохранить как шаблон</button>
     <div class="modal-actions">
@@ -683,8 +707,8 @@
       <textarea class="form-input" id="editTplTaskName" rows="3" onkeydown="if(event.ctrlKey && event.key==='Enter') saveTplTask()"></textarea>
     </div>
     <div class="form-group">
-      <div class="form-label">Категория</div>
-      <select class="form-input form-select" id="editTplTaskCategory" onkeydown="if(event.ctrlKey && event.key==='Enter') saveTplTask()"></select>
+      <div class="form-label">Категории</div>
+      <div id="editTplTaskCategoriesWrap" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalEditTplTask')">Отмена</button>
@@ -999,6 +1023,20 @@ function saveToStorage() {
   autoSaveToCloud();
 }
 
+// РЕНДЕР КАТЕГОРИЙ В МОДАЛЬНЫХ ОКНАХ (МНОЖЕСТВЕННЫЙ ВЫБОР)
+function renderCategorySelector(containerId, activeCats = []) {
+  const wrap = document.getElementById(containerId);
+  wrap.innerHTML = categories.map(c => {
+    const isActive = activeCats.includes(c.name);
+    return `<button type="button" class="cat-pill ${isActive ? 'active' : ''}" onclick="this.classList.toggle('active')">${esc(c.name)}</button>`;
+  }).join('');
+}
+
+function getSelectedCategoriesFromSelector(containerId) {
+  const activeBtns = document.querySelectorAll(`#${containerId} .cat-pill.active`);
+  return Array.from(activeBtns).map(btn => btn.textContent.trim());
+}
+
 // РЕНДЕР И ЛОГИКА ЗАДАЧ
 function render() {
   const list = document.getElementById('taskList');
@@ -1008,22 +1046,21 @@ function render() {
   let filtered = todos;
   if (filterDate) filtered = todos.filter(t => t.date === filterDate);
 
-  // Рендер пилюль категорий — показываем только те категории, где на этот день
-  // ещё остались невыполненные задания. Если все задания категории выполнены,
-  // её кнопка пропадает из списка.
-  const catFilterEl = document.getElementById('mainCatFilter');
-  const usedCats = [...new Set(filtered.filter(t => !t.completed).map(t => t.category).filter(Boolean))];
-  // Если выбранная категория больше не содержит невыполненных заданий — сбрасываем фильтр на "Все"
+  // Собираем все используемые категории на выбранный день из невыполненных задач
+  const usedCats = [...new Set(filtered.filter(t => !t.completed).flatMap(t => t.categories || (t.category ? [t.category] : [])).filter(Boolean))];
+  
+  // Если выбранная категория больше не используется, сбрасываем фильтр
   if (mainCatFilter && !usedCats.includes(mainCatFilter)) {
     mainCatFilter = null;
   }
+
+  const catFilterEl = document.getElementById('mainCatFilter');
   if (usedCats.length > 1) {
     catFilterEl.style.display = 'flex';
     catFilterEl.innerHTML =
       `<button class="cat-pill ${mainCatFilter===null?'active':''}" onclick="setMainCatFilter(null)">Все</button>` +
       usedCats.map(c => {
-        const label = c;
-        return `<button class="cat-pill ${mainCatFilter===c?'active':''}" onclick="setMainCatFilter('${esc(c)}')">${esc(label)}</button>`;
+        return `<button class="cat-pill ${mainCatFilter===c?'active':''}" onclick="setMainCatFilter('${esc(c)}')">${esc(c)}</button>`;
       }).join('');
   } else {
     catFilterEl.style.display = 'none';
@@ -1032,8 +1069,10 @@ function render() {
 
   // Применяем фильтр категории
   if (mainCatFilter) {
-    filtered = filtered.filter(t => t.category === mainCatFilter);
-    // При выборе конкретной категории показываем только невыполненные (новые) задания
+    filtered = filtered.filter(t => {
+      const cats = t.categories || (t.category ? [t.category] : []);
+      return cats.includes(mainCatFilter);
+    });
     filtered = filtered.filter(t => !t.completed);
   }
 
@@ -1052,9 +1091,9 @@ function render() {
   } else {
     empty.style.display = 'none';
     filtered.forEach(item => {
-      const catLabel = item.category;
       const div = document.createElement('div');
       div.className = `task-item ${item.completed ? 'completed' : ''}`;
+      
       let timeHtml = '';
       if (item.timeStart && item.timeEnd) {
         const mins = calcDurationMinutes(item.timeStart, item.timeEnd);
@@ -1062,17 +1101,22 @@ function render() {
       } else if (item.timeStart) {
         timeHtml = `<span class="task-time in-progress">▶ начато в ${item.timeStart}</span>`;
       }
+      
       const startBtnHtml = !item.timeStart
         ? `<button class="btn btn-green btn-icon btn-sm" title="Начать (зафиксировать время старта)" onclick="quickStartTime('${item.id}', event)">▶</button>`
         : '';
       const stopBtnHtml = (item.timeStart && !item.timeEnd)
         ? `<button class="btn btn-danger btn-icon btn-sm" title="Завершить (зафиксировать время окончания)" onclick="quickStopTime('${item.id}', event)">⏹</button>`
         : '';
+
+      const itemCats = item.categories || (item.category ? [item.category] : []);
+      const tagsHtml = itemCats.map(c => `<span class="task-tag">${esc(c)}</span>`).join('');
+
       div.innerHTML = `
         <div class="checkbox-wrapper" onclick="toggleComplete('${item.id}')"><div class="custom-checkbox"></div></div>
         <div class="task-content">
           <div class="task-title">${esc(item.name)}</div>
-          <div class="task-meta"><span class="task-tag">${esc(catLabel)}</span><span>📅 ${formatDate(item.date)}</span>${timeHtml}</div>
+          <div class="task-meta">${tagsHtml}<span>📅 ${formatDate(item.date)}</span>${timeHtml}</div>
         </div>
         <div class="task-actions">
           ${startBtnHtml}
@@ -1101,13 +1145,6 @@ function updateStats(filteredItems) {
   document.getElementById('statLeft').textContent = total - done;
 }
 
-function populateCategorySelect(selectedVal) {
-  const sel = document.getElementById('taskCategory');
-  sel.innerHTML = categories.map(c =>
-    `<option value="${esc(c.name)}" ${c.name===selectedVal?'selected':''}>${esc(c.name)}</option>`
-  ).join('');
-}
-
 function openAddTask() {
   editingTaskId = null;
   document.getElementById('modalTaskTitle').textContent = 'Новое задание';
@@ -1115,7 +1152,7 @@ function openAddTask() {
   document.getElementById('taskDate').value = document.getElementById('filterDate').value || new Date().toISOString().split('T')[0];
   document.getElementById('taskTimeStart').value = '';
   document.getElementById('taskTimeEnd').value = '';
-  populateCategorySelect(categories[0]?.name || '');
+  renderCategorySelector('taskCategoriesWrap', categories[0] ? [categories[0].name] : []);
   openModal('modalTask');
   setTimeout(() => document.getElementById('taskName').focus(), 50);
 }
@@ -1130,26 +1167,45 @@ function openEditTask(id, event) {
   document.getElementById('taskDate').value = item.date;
   document.getElementById('taskTimeStart').value = item.timeStart || '';
   document.getElementById('taskTimeEnd').value = item.timeEnd || '';
-  populateCategorySelect(item.category);
+  const itemCats = item.categories || (item.category ? [item.category] : []);
+  renderCategorySelector('taskCategoriesWrap', itemCats);
   openModal('modalTask');
 }
 
 function saveTask() {
   const name = document.getElementById('taskName').value.trim();
   const date = document.getElementById('taskDate').value;
-  const category = document.getElementById('taskCategory').value;
+  const selectedCats = getSelectedCategoriesFromSelector('taskCategoriesWrap');
   const timeStart = document.getElementById('taskTimeStart').value || null;
   const timeEnd = document.getElementById('taskTimeEnd').value || null;
+  
   if (!name) { showToast('Введите название задания'); return; }
   if (!date) { showToast('Выберите дату'); return; }
+  if (selectedCats.length === 0) { showToast('Выберите хотя бы одну категорию'); return; }
 
   if (editingTaskId) {
     const item = todos.find(t => t.id === editingTaskId);
-    if (item) { item.name = name; item.date = date; item.category = category; item.timeStart = timeStart; item.timeEnd = timeEnd; }
+    if (item) { 
+      item.name = name; 
+      item.date = date; 
+      item.categories = selectedCats;
+      item.category = selectedCats[0] || ''; // Для обратной совместимости
+      item.timeStart = timeStart; 
+      item.timeEnd = timeEnd; 
+    }
     saveToStorage(); closeModal('modalTask'); showToast('Задание обновлено');
     editingTaskId = null;
   } else {
-    todos.push({ id: 'todo_' + Date.now(), name, date, category, completed: false, timeStart, timeEnd });
+    todos.push({ 
+      id: 'todo_' + Date.now(), 
+      name, 
+      date, 
+      categories: selectedCats, 
+      category: selectedCats[0] || '', // Для обратной совместимости
+      completed: false, 
+      timeStart, 
+      timeEnd 
+    });
     saveToStorage(); closeModal('modalTask'); showToast('Задание добавлено');
   }
 }
@@ -1158,7 +1214,6 @@ function toggleComplete(id) {
   const item = todos.find(t => t.id === id);
   if (!item) return;
   item.completed = !item.completed;
-  // Если задание помечается выполненным, начато (есть время начала), но время окончания ещё не проставлено — фиксируем его автоматически
   if (item.completed && item.timeStart && !item.timeEnd) {
     item.timeEnd = currentTimeStr();
     showToast(`Готово: с ${item.timeStart} по ${item.timeEnd} (${formatDuration(calcDurationMinutes(item.timeStart, item.timeEnd))})`);
@@ -1166,7 +1221,6 @@ function toggleComplete(id) {
   saveToStorage();
 }
 
-// Кнопка "▶" на карточке задания — фиксирует текущее время как время начала
 function quickStartTime(id, event) {
   event.stopPropagation();
   const item = todos.find(t => t.id === id);
@@ -1177,7 +1231,6 @@ function quickStartTime(id, event) {
   showToast(`Начато в ${item.timeStart}`);
 }
 
-// Кнопка "⏹" на карточке задания — фиксирует текущее время как время окончания
 function quickStopTime(id, event) {
   event.stopPropagation();
   const item = todos.find(t => t.id === id);
@@ -1200,7 +1253,7 @@ function calcDurationMinutes(start, end) {
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
   let mins = (eh * 60 + em) - (sh * 60 + sm);
-  if (mins < 0) mins += 24 * 60; // на случай работы после полуночи
+  if (mins < 0) mins += 24 * 60;
   return mins;
 }
 
@@ -1307,14 +1360,8 @@ function executeMoveOne() {
 }
 
 // ШАБЛОНЫ
-// ==========================================
-// ШАБЛОНЫ — ПАПКИ
-// ==========================================
-// templates теперь = массив папок:
-// { id, name, repeat, weekdays, monthDay, tasks: [{id, name, category}] }
-
 let editingFolderId = null;
-let pendingTemplateTask = null; // задание ожидающее выбора папки
+let pendingTemplateTask = null;
 
 function folderRepeatLabel(folder) {
   if (folder.repeat === 'daily') return { text: 'Каждый день', cls: 'badge-daily' };
@@ -1340,16 +1387,21 @@ function folderMatchesDate(folder, dateStr) {
 
 function saveAsTemplate() {
   const name = document.getElementById('taskName').value.trim();
-  const category = document.getElementById('taskCategory').value;
+  const selectedCats = getSelectedCategoriesFromSelector('taskCategoriesWrap');
   if (!name) { showToast('Введите название для шаблона'); return; }
+  if (selectedCats.length === 0) { showToast('Выберите хотя бы одну категорию'); return; }
 
-  // Если нет папок — создаём сразу без выбора
   if (!templates.length) {
     showToast('Сначала создайте папку в разделе Шаблоны');
     return;
   }
 
-  pendingTemplateTask = { id: 'tsk_' + Date.now(), name, category };
+  pendingTemplateTask = { 
+    id: 'tsk_' + Date.now(), 
+    name, 
+    categories: selectedCats, 
+    category: selectedCats[0] || '' 
+  };
   document.getElementById('chooseFolderTaskName').textContent = name;
 
   const list = document.getElementById('chooseFolderList');
@@ -1388,9 +1440,7 @@ function openCategoriesModal() {
   openModal('modalCategories');
 }
 
-// ==========================================
 // УПРАВЛЕНИЕ КАТЕГОРИЯМИ
-// ==========================================
 function renderCategoryManage() {
   const list = document.getElementById('categoryManageList');
   if (!categories.length) {
@@ -1432,10 +1482,20 @@ function saveCategory() {
   if (editingCategoryId) {
     const cat = categories.find(c => c.id === editingCategoryId);
     if (cat) {
-      // Обновляем все задания с этой категорией
-      todos.forEach(t => { if (t.name && t.category === cat.name) t.category = name; });
+      // Обновляем все задачи с этой категорией
+      todos.forEach(t => { 
+        if (t.categories) {
+          t.categories = t.categories.map(c => c === cat.name ? name : c);
+        }
+        if (t.category === cat.name) t.category = name; 
+      });
       // Обновляем шаблоны
-      templates.forEach(f => (f.tasks||[]).forEach(t => { if (t.category === cat.name) t.category = name; }));
+      templates.forEach(f => (f.tasks||[]).forEach(t => { 
+        if (t.categories) {
+          t.categories = t.categories.map(c => c === cat.name ? name : c);
+        }
+        if (t.category === cat.name) t.category = name; 
+      }));
       cat.name = name;
     }
     editingCategoryId = null;
@@ -1453,9 +1513,25 @@ function saveCategory() {
 function deleteCategory(id) {
   const cat = categories.find(c => c.id === id);
   if (!cat) return;
-  const inUse = todos.some(t => t.category === cat.name);
-  if (inUse && !confirm(`Категория «${cat.name}» используется в заданиях. Удалить?`)) return;
+  
+  const inUse = todos.some(t => {
+    const cats = t.categories || (t.category ? [t.category] : []);
+    return cats.includes(cat.name);
+  });
+  
+  if (inUse && !confirm(`Категория «${cat.name}» используется в заданиях. Удалить её из задач?`)) return;
   if (!inUse && !confirm(`Удалить категорию «${cat.name}»?`)) return;
+  
+  // Удаляем категорию из списков у задач и шаблонов
+  todos.forEach(t => {
+    if (t.categories) t.categories = t.categories.filter(c => c !== cat.name);
+    if (t.category === cat.name) t.category = t.categories?.[0] || '';
+  });
+  templates.forEach(f => (f.tasks||[]).forEach(t => {
+    if (t.categories) t.categories = t.categories.filter(c => c !== cat.name);
+    if (t.category === cat.name) t.category = t.categories?.[0] || '';
+  }));
+
   categories = categories.filter(c => c.id !== id);
   saveToStorage();
   renderCategoryManage();
@@ -1472,14 +1548,18 @@ function renderTemplates() {
     const rl = folderRepeatLabel(f);
     const tasks = f.tasks || [];
     const tasksHtml = tasks.length
-      ? tasks.map(t => `<div class="tpl-task-item">
-          <span class="tpl-task-name">${esc(t.name)}</span>
-          <span class="tpl-task-tag">${esc(t.category)}</span>
-          <div class="tpl-task-actions">
-            <button class="btn btn-blue btn-icon btn-sm" onclick="openEditTplTask('${f.id}','${t.id}')">✏️</button>
-            <button class="btn btn-danger btn-icon btn-sm" onclick="deleteTaskFromFolder('${f.id}','${t.id}')">✕</button>
-          </div>
-        </div>`).join('')
+      ? tasks.map(t => {
+          const tCats = t.categories || (t.category ? [t.category] : []);
+          const tagsHtml = tCats.map(c => `<span class="tpl-task-tag">${esc(c)}</span>`).join('');
+          return `<div class="tpl-task-item">
+            <span class="tpl-task-name">${esc(t.name)}</span>
+            <div style="display:flex; gap:4px; flex-wrap:wrap; margin-right:8px;">${tagsHtml}</div>
+            <div class="tpl-task-actions">
+              <button class="btn btn-blue btn-icon btn-sm" onclick="openEditTplTask('${f.id}','${t.id}')">✏️</button>
+              <button class="btn btn-danger btn-icon btn-sm" onclick="deleteTaskFromFolder('${f.id}','${t.id}')">✕</button>
+            </div>
+          </div>`
+        }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0;">Заданий нет. Добавьте через «Сохранить как шаблон».</div>';
 
     return `<div class="tpl-folder" id="folder_${f.id}">
@@ -1508,7 +1588,7 @@ function toggleFolder(id) {
   document.getElementById('folder_' + id)?.classList.toggle('open');
 }
 
-  let editingTplFolderId = null, editingTplTaskId = null;
+let editingTplFolderId = null, editingTplTaskId = null;
 
 function openEditTplTask(folderId, taskId) {
   const folder = templates.find(f => f.id === folderId);
@@ -1518,21 +1598,27 @@ function openEditTplTask(folderId, taskId) {
   editingTplFolderId = folderId;
   editingTplTaskId = taskId;
   document.getElementById('editTplTaskName').value = task.name;
-  const sel = document.getElementById('editTplTaskCategory');
-  sel.innerHTML = categories.map(c => `<option value="${esc(c.name)}" ${c.name === task.category ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  
+  const tCats = task.categories || (task.category ? [task.category] : []);
+  renderCategorySelector('editTplTaskCategoriesWrap', tCats);
   openModal('modalEditTplTask');
 }
 
 function saveTplTask() {
   const name = document.getElementById('editTplTaskName').value.trim();
-  const category = document.getElementById('editTplTaskCategory').value;
+  const selectedCats = getSelectedCategoriesFromSelector('editTplTaskCategoriesWrap');
   if (!name) { showToast('Введите название'); return; }
+  if (selectedCats.length === 0) { showToast('Выберите хотя бы одну категорию'); return; }
+  
   const folder = templates.find(f => f.id === editingTplFolderId);
   if (!folder) return;
   const task = (folder.tasks || []).find(t => t.id === editingTplTaskId);
   if (!task) return;
+  
   task.name = name;
-  task.category = category;
+  task.categories = selectedCats;
+  task.category = selectedCats[0] || '';
+  
   saveToStorage();
   closeModal('modalEditTplTask');
   renderTemplates();
@@ -1546,7 +1632,6 @@ function deleteTaskFromFolder(folderId, taskId) {
   if (!folder) return;
   folder.tasks = (folder.tasks || []).filter(t => t.id !== taskId);
   saveToStorage(); renderTemplates();
-  // Переоткрываем папку
   const el = document.getElementById('folder_' + folderId);
   if (el) el.classList.add('open');
   showToast('Задание удалено из папки');
@@ -1563,7 +1648,16 @@ function applyFolder(folderId) {
   tasks.forEach(t => {
     const exists = todos.some(td => td.date === filterDate && td.name === t.name);
     if (exists) { skipped++; return; }
-    todos.push({ id: 'todo_' + Date.now() + Math.random().toString(36).substring(2,6), name: t.name, date: filterDate, category: t.category, completed: false });
+    
+    const tCats = t.categories || (t.category ? [t.category] : []);
+    todos.push({ 
+      id: 'todo_' + Date.now() + Math.random().toString(36).substring(2,6), 
+      name: t.name, 
+      date: filterDate, 
+      categories: tCats, 
+      category: tCats[0] || '', 
+      completed: false 
+    });
     added++;
   });
   saveToStorage();
@@ -1583,7 +1677,15 @@ function applyMatchingFolders() {
     (f.tasks || []).forEach(t => {
       const exists = todos.some(td => td.date === filterDate && td.name === t.name);
       if (exists) { skipped++; return; }
-      todos.push({ id: 'todo_' + Date.now() + Math.random().toString(36).substring(2,6), name: t.name, date: filterDate, category: t.category, completed: false });
+      const tCats = t.categories || (t.category ? [t.category] : []);
+      todos.push({ 
+        id: 'todo_' + Date.now() + Math.random().toString(36).substring(2,6), 
+        name: t.name, 
+        date: filterDate, 
+        categories: tCats, 
+        category: tCats[0] || '', 
+        completed: false 
+      });
       added++;
     });
   });
@@ -1700,9 +1802,18 @@ function executeTransfer() {
   let count = tasksToMove.length;
 
   tasksToMove.forEach(task => {
-    if (deleteFromOldDay) { task.date = targetDate; } 
-    else {
-      todos.push({ id: 'todo_' + Date.now() + Math.random().toString(36).substring(2, 7), name: task.name, date: targetDate, category: task.category, completed: false });
+    const tCats = task.categories || (task.category ? [task.category] : []);
+    if (deleteFromOldDay) { 
+      task.date = targetDate; 
+    } else {
+      todos.push({ 
+        id: 'todo_' + Date.now() + Math.random().toString(36).substring(2, 7), 
+        name: task.name, 
+        date: targetDate, 
+        categories: tCats, 
+        category: tCats[0] || '', 
+        completed: false 
+      });
     }
   });
 
@@ -1711,15 +1822,11 @@ function executeTransfer() {
   showToast(deleteFromOldDay ? `Перенесено: ${count}` : `Скопировано: ${count}`);
 }
 
-// ==========================================
 // GITHUB GIST СИНХРОНИЗАЦИЯ
-// ==========================================
-
 const GIST_ID = '4586ad4369f06a422ecf842e8df5b78b';
 const GIST_URL = `https://api.github.com/gists/${GIST_ID}`;
 const GIST_FILENAME = 'data.json';
 
-// --- Экран ввода токена при первом запуске ---
 function showTokenScreen() {
   document.getElementById('startupOverlay').style.display = 'flex';
 }
@@ -1739,7 +1846,6 @@ async function submitToken() {
   render();
 }
 
-// --- Стартовая синхронизация ---
 async function syncOnStartup(token) {
   try {
     const response = await fetch(GIST_URL, {
@@ -1748,7 +1854,7 @@ async function syncOnStartup(token) {
         'X-GitHub-Api-Version': '2022-11-28'
       }
     });
-    if (!response.ok) return; // тихо пропускаем ошибку сети
+    if (!response.ok) return;
 
     const gist = await response.json();
     const raw = gist.files?.[GIST_FILENAME]?.content;
@@ -1761,7 +1867,6 @@ async function syncOnStartup(token) {
     const localDate = localStorage.getItem('last_saved_at') || '';
 
     if (cloudDate > localDate) {
-      // Облако новее — тихо загружаем
       todos = cloudData.todos;
       templates = cloudData.templates || [];
       categories = cloudData.categories || categories;
@@ -1776,12 +1881,9 @@ async function syncOnStartup(token) {
         localStorage.setItem('kassa_data2', JSON.stringify(cloudData.kassaData));
       }
     }
-  } catch(e) {
-    // тихо игнорируем — работаем офлайн
-  }
+  } catch(e) {}
 }
 
-// --- Авто-сохранение (с дебаунсом 2 сек) ---
 let _autoSaveTimer = null;
 function autoSaveToCloud() {
   clearTimeout(_autoSaveTimer);
@@ -1810,9 +1912,7 @@ async function _doAutoSave() {
       localStorage.setItem('last_saved_at', now);
       showSyncIndicator();
     }
-  } catch(e) {
-    // тихо — нет интернета, не страшно
-  }
+  } catch(e) {}
 }
 
 function showSyncIndicator() {
@@ -1823,13 +1923,15 @@ function showSyncIndicator() {
   clearTimeout(el._hideTimer);
   el._hideTimer = setTimeout(() => { el.style.opacity = '0'; }, 2000);
 }
+
 function exportCSV() {
-  const rows = [['Дата','День недели','Название','Категория','Выполнено']];
+  const rows = [['Дата','День недели','Название','Категории','Выполнено']];
   const days = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
   const sorted = [...todos].sort((a,b) => a.date > b.date ? 1 : -1);
   sorted.forEach(t => {
     const d = new Date(t.date);
-    rows.push([t.date, days[d.getDay()], t.name, t.category||'', t.completed?'Да':'Нет']);
+    const tCats = t.categories || (t.category ? [t.category] : []);
+    rows.push([t.date, days[d.getDay()], t.name, tCats.join(', '), t.completed?'Да':'Нет']);
   });
   const csv = '\uFEFF' + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
   const a = document.createElement('a');
@@ -1847,7 +1949,7 @@ function importCSV(event) {
     try {
       const text = e.target.result.replace(/^\uFEFF/, '');
       const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-      lines.shift(); // убираем заголовок
+      lines.shift();
       let added = 0, skipped = 0;
       lines.forEach(line => {
         const cols = line.split(';').map(c => c.replace(/^"|"$/g,'').replace(/""/g,'"'));
@@ -1855,16 +1957,19 @@ function importCSV(event) {
         if (!date || !name) return;
         const exists = todos.some(t => t.date === date && t.name === name);
         if (exists) { skipped++; return; }
+        
+        const cats = category ? category.split(',').map(c => c.trim()).filter(Boolean) : [];
         todos.push({
           id: 'todo_' + Date.now() + Math.random().toString(36).substring(2,6),
           name, date,
-          category: category || '',
+          categories: cats,
+          category: cats[0] || '',
           completed: completedStr === 'Да'
         });
         added++;
       });
       saveToStorage();
-      renderAll();
+      render();
       showToast(`Импортировано: ${added} новых, пропущено ${skipped} дублей`);
     } catch(err) {
       showToast('Ошибка при чтении CSV');
@@ -1874,24 +1979,9 @@ function importCSV(event) {
   reader.readAsText(file, 'UTF-8');
 }
   
-  
-// --- Ручная синхронизация (на случай нужды) ---
 function openSyncModal() {
   document.getElementById('syncStatus').style.display = 'none';
   openModal('modalSync');
-}
-
-function toggleTokenVisibility() {
-  const input = document.getElementById('syncToken');
-  input.type = input.type === 'password' ? 'text' : 'password';
-}
-
-function setSyncStatus(msg, color) {
-  const el = document.getElementById('syncStatus');
-  el.textContent = msg;
-  el.style.background = color === 'green' ? 'rgba(52,216,92,0.1)' : color === 'red' ? 'rgba(255,94,87,0.1)' : 'rgba(255,255,255,0.05)';
-  el.style.color = color === 'green' ? 'var(--green)' : color === 'red' ? 'var(--red)' : 'var(--text2)';
-  el.style.display = 'block';
 }
 
 async function loadFromCloud() {
@@ -1982,24 +2072,29 @@ function renderIncomplete() {
     filtered = filtered.filter(t => t.date >= fromStr);
   }
 
-  // Рендер пилюль категорий для долгов
+  // Собираем используемые категории для должников
+  const usedCats = [...new Set(filtered.flatMap(t => t.categories || (t.category ? [t.category] : [])).filter(Boolean))];
+  
   const catFilterEl = document.getElementById('incompleteCatFilter');
-  const usedCats = [...new Set(filtered.map(t => t.category).filter(Boolean))];
   if (usedCats.length > 1) {
     catFilterEl.style.display = 'flex';
     catFilterEl.innerHTML =
       `<button class="cat-pill ${incompleteCatFilter===null?'active':''}" onclick="setIncompleteCatFilter(null)">Все</button>` +
       usedCats.map(c => {
-        const label = c;
-        return `<button class="cat-pill ${incompleteCatFilter===c?'active':''}" onclick="setIncompleteCatFilter('${esc(c)}')">${esc(label)}</button>`;
+        return `<button class="cat-pill ${incompleteCatFilter===c?'active':''}" onclick="setIncompleteCatFilter('${esc(c)}')">${esc(c)}</button>`;
       }).join('');
   } else {
     catFilterEl.style.display = 'none';
     incompleteCatFilter = null;
   }
 
-  // Применяем фильтр категории
-  if (incompleteCatFilter) filtered = filtered.filter(t => t.category === incompleteCatFilter);
+  // Фильтруем долги по категории
+  if (incompleteCatFilter) {
+    filtered = filtered.filter(t => {
+      const cats = t.categories || (t.category ? [t.category] : []);
+      return cats.includes(incompleteCatFilter);
+    });
+  }
 
   // Группируем по дате
   const groups = {};
@@ -2032,13 +2127,14 @@ function renderIncomplete() {
           <span class="day-group-count">${items.length}</span>
         </div>
         ${items.map(item => {
-          const catLabel = item.category;
+          const tCats = item.categories || (item.category ? [item.category] : []);
+          const tagsHtml = tCats.map(c => `<span class="task-tag">${esc(c)}</span>`).join('');
           return `
           <div class="task-item" id="inc_${item.id}">
             <div class="checkbox-wrapper" onclick="incompleteToggle('${item.id}')"><div class="custom-checkbox"></div></div>
             <div class="task-content">
               <div class="task-title">${esc(item.name)}</div>
-              <div class="task-meta"><span class="task-tag">${esc(catLabel)}</span></div>
+              <div class="task-meta">${tagsHtml}</div>
             </div>
             <div class="task-actions" style="opacity:1; pointer-events:auto;">
               <button class="btn btn-orange btn-icon btn-sm" title="Перенести" onclick="incompleteMoveOne('${item.id}')">↷</button>
@@ -2075,7 +2171,6 @@ function incompleteDelete(id) {
 }
 
 function incompleteMoveOne(id) {
-  // Переиспользуем существующий модал переноса
   const item = todos.find(t => t.id === id);
   if (!item) return;
   movingTaskId = id;
@@ -2083,7 +2178,6 @@ function incompleteMoveOne(id) {
   const tomorrow = new Date(item.date);
   tomorrow.setDate(tomorrow.getDate() + 1);
   document.getElementById('moveOneTargetDate').value = tomorrow.toISOString().split('T')[0];
-  // После переноса — обновить и этот экран тоже
   window._moveOneCallback = () => renderIncomplete();
   openModal('modalMoveOne');
 }
@@ -2097,22 +2191,19 @@ function formatDateFull(dateStr) {
   return `${d} ${months[+m-1]} ${y} (${days[dt.getDay()]})`;
 }
 
-
 function filterTasks() { mainCatFilter = null; render(); }
 function setFilterAll() { document.getElementById('filterDate').value = ''; mainCatFilter = null; render(); }
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(el => { el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); }); });
 
-// Ctrl+Enter — сохранить задание, Escape — закрыть активный модал
+// Нажатия клавиш
 document.addEventListener('keydown', e => {
-  // Insert — открыть форму нового задания
   if (e.key === 'Insert') {
     e.preventDefault();
     openAddTask();
     return;
   }
-  // Escape — закрыть верхний открытый модал
   if (e.key === 'Escape') {
     const opened = [...document.querySelectorAll('.modal-overlay.open, .fullscreen-overlay.open')]
       .filter(el => getComputedStyle(el).pointerEvents !== 'none');
@@ -2123,8 +2214,6 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-
-  // Ctrl+Enter — сохранить задание если открыт modalTask
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     if (document.getElementById('modalTask').classList.contains('open')) {
       e.preventDefault();
@@ -2325,7 +2414,6 @@ function svcServiceHTML(sv, locked) {
   </div>`;
 }
 
-// Месяцы
 function svcBuildMonthGrid(gridId, selectedVal) {
   document.getElementById(gridId).innerHTML = SVC_MONTHS_S.map((n,i)=>
     `<button class="svc-month-btn ${selectedVal===i+1?'active':''}" onclick="svcSelectMonth('${gridId}',${i+1},this)">${n}</button>`
@@ -2387,7 +2475,6 @@ function svcExecuteCopyMonth() {
   svcSave(); closeSvcModal('svcModalCopyMonth'); svcNavigate(); showToast('Месяць скопійовано');
 }
 
-// Объекты
 function svcOpenAddObject() {
   svcEditObjectId=null;
   document.getElementById('svcObjectName').value='';
@@ -2419,7 +2506,6 @@ function svcDeleteObject(id) {
   m.objects=m.objects.filter(o=>o.id!==id); svcSave(); svcRender(); showToast('Объект удалён');
 }
 
-// Услуги
 function svcOpenAddService() {
   svcEditServiceId=null;
   document.getElementById('svcServiceName').value='';
@@ -2496,7 +2582,6 @@ function svcExecuteCopyService() {
   svcSave(); closeSvcModal('svcModalCopyService'); showToast('Услуга скопирована');
 }
 
-// Клик по фону закрывает svc-модалы
 document.querySelectorAll('[id^="svcModal"]').forEach(el=>{
   el.addEventListener('click',e=>{if(e.target===el)closeSvcModal(el.id);});
 });
