@@ -512,6 +512,7 @@
     <button class="btn btn-secondary btn-sm" onclick="openTemplatesModal()">📋 Шаблоны</button>
     <button class="btn btn-danger btn-sm" onclick="openIncompleteModal()">⚠️ Долги</button>
     <button class="btn btn-secondary btn-sm" onclick="openServicesModule()">🧾 Услуги</button>
+    <button class="btn btn-secondary btn-sm" onclick="openTrashModal()">🗑️ Корзина</button>
     <button class="btn btn-primary btn-sm" onclick="openAddTask()">+ Дело</button>
   </div>
 </div>
@@ -914,6 +915,19 @@
   </div>
 </div>
 
+ <!-- КОРЗИНА -->
+<div class="modal-overlay" id="modalTrash">
+  <div class="modal">
+    <div class="modal-title">🗑️ Корзина</div>
+    <div id="trashList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+    <div id="trashEmpty" style="text-align:center;padding:24px 0;color:var(--text3);font-size:13px;display:none;">Корзина пуста</div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalTrash')">Закрыть</button>
+      <button class="btn btn-danger" onclick="clearTrash()">🗑️ Очистить всё</button>
+    </div>
+  </div>
+</div> 
+  
 <div class="toast" id="toast"></div>
 
 <!-- Индикатор авто-сохранения -->
@@ -947,6 +961,7 @@
 <script>
 // ОСНОВНЫЕ ДАННЫЕ
 let todos = JSON.parse(localStorage.getItem('todo_items') || '[]');
+let trash = JSON.parse(localStorage.getItem('todo_trash') || '[]');
 let templates = JSON.parse(localStorage.getItem('todo_templates') || '[]');
 let categories = JSON.parse(localStorage.getItem('todo_categories') || 'null') || [
   { id: 'cat_1', name: 'Работа' },
@@ -977,6 +992,7 @@ async function init() {
 
 function saveToStorage() {
   localStorage.setItem('todo_items', JSON.stringify(todos));
+  localStorage.setItem('todo_trash', JSON.stringify(trash));
   localStorage.setItem('todo_templates', JSON.stringify(templates));
   localStorage.setItem('todo_categories', JSON.stringify(categories));
   render();
@@ -1197,12 +1213,70 @@ function formatDuration(mins) {
   return `${h} ч ${m} мин`;
 }
 
+function openTrashModal() {
+  renderTrash();
+  openModal('modalTrash');
+}
+
+function renderTrash() {
+  const list = document.getElementById('trashList');
+  const empty = document.getElementById('trashEmpty');
+  if (!trash.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = trash.map(item => {
+    const d = new Date(item.deletedAt);
+    const dateStr = d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'});
+    return `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius3);padding:12px;display:flex;align-items:center;gap:10px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:500;">${esc(item.name)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;">📅 ${formatDate(item.date)} · удалено ${dateStr}</div>
+      </div>
+      <button class="btn btn-green btn-sm btn-icon" title="Восстановить" onclick="restoreFromTrash('${item.id}')">↩️</button>
+      <button class="btn btn-danger btn-sm btn-icon" title="Удалить навсегда" onclick="deleteFromTrash('${item.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function restoreFromTrash(id) {
+  const item = trash.find(t => t.id === id);
+  if (!item) return;
+  const { deletedAt, ...restored } = item;
+  todos.push(restored);
+  trash = trash.filter(t => t.id !== id);
+  saveToStorage();
+  renderTrash();
+  showToast('Задание восстановлено ✓');
+}
+
+function deleteFromTrash(id) {
+  if (!confirm('Удалить навсегда?')) return;
+  trash = trash.filter(t => t.id !== id);
+  saveToStorage();
+  renderTrash();
+  showToast('Удалено навсегда');
+}
+
+function clearTrash() {
+  if (!trash.length) { showToast('Корзина уже пуста'); return; }
+  if (!confirm(`Удалить навсегда все ${trash.length} элем. из корзины?`)) return;
+  trash = [];
+  saveToStorage();
+  renderTrash();
+  showToast('Корзина очищена');
+}
+  
 function deleteTask(id, event) {
   event.stopPropagation();
-  if (confirm('Удалить это задание?')) {
-    todos = todos.filter(t => t.id !== id);
-    saveToStorage(); showToast('Задание удалено');
-  }
+  const item = todos.find(t => t.id === id);
+  if (!item) return;
+  trash.push({ ...item, deletedAt: new Date().toISOString() });
+  todos = todos.filter(t => t.id !== id);
+  saveToStorage();
+  showToast('Перемещено в корзину 🗑️');
 }
 
 // ПЕРЕНОС ОДНОГО ЗАДАНИЯ
