@@ -1766,6 +1766,7 @@ async function syncOnStartup(token) {
       templates = cloudData.templates || [];
       categories = cloudData.categories || categories;
       svcData = cloudData.svcData || { months: [] };
+      trash = cloudData.trash || [];
       localStorage.setItem('todo_items', JSON.stringify(todos));
       localStorage.setItem('todo_templates', JSON.stringify(templates));
       localStorage.setItem('todo_categories', JSON.stringify(categories));
@@ -1793,7 +1794,7 @@ async function _doAutoSave() {
   try {
     const now = new Date().toISOString();
     const kassaData = JSON.parse(localStorage.getItem('kassa_data2') || '{"entries":[],"rkoRef":[]}');
-    const payload = { todos, templates, categories, svcData, kassaData, savedAt: now };
+    const payload = { todos, templates, categories, svcData, kassaData, trash, savedAt: now };
     const response = await fetch(GIST_URL, {
       method: 'PATCH',
       headers: {
@@ -1922,6 +1923,7 @@ async function loadFromCloud() {
     templates = data.templates || [];
     categories = data.categories || categories;
     svcData = data.svcData || { months: [] };
+    trash = data.trash || [];
     localStorage.setItem('todo_items', JSON.stringify(todos));
     localStorage.setItem('todo_templates', JSON.stringify(templates));
     localStorage.setItem('todo_categories', JSON.stringify(categories));
