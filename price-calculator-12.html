@@ -1092,7 +1092,50 @@
   });
 
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeDiscount();
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    const isInput = (tag === 'INPUT' || tag === 'TEXTAREA');
+    const modalOpen = document.getElementById('modal-overlay').classList.contains('open');
+
+    if (e.key === 'Escape') {
+      closeDiscount();
+      return;
+    }
+
+    // Delete — всегда очищает поля текущего экрана
+    if (e.key === 'Delete') {
+      e.preventDefault();
+      if (modalOpen) {
+        resetDiscount();
+      } else {
+        resetFields();
+      }
+      return;
+    }
+
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      const key = e.key;
+      // Д/д/D/d — всегда закрывает модалку (даже если фокус в поле)
+      if (key === 'д' || key === 'Д' || key === 'd' || key === 'D') {
+        if (modalOpen) {
+          e.preventDefault();
+          closeDiscount();
+          setTimeout(() => {
+            const el = document.getElementById('purchase');
+            el.focus();
+            if (el.value !== '') el.select();
+          }, 50);
+          return;
+        }
+      }
+      // С/с/C/c — открывает скидку (работает даже если фокус в поле)
+      if (key === 'с' || key === 'С' || key === 'c' || key === 'C') {
+        if (!modalOpen) {
+          e.preventDefault();
+          openDiscount();
+        }
+        return;
+      }
+    }
   });
 
   // ─── Сохранение записей ────────────────────────────────
