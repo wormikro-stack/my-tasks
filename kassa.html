@@ -420,6 +420,7 @@
   input[type=number]::-webkit-inner-spin-button,
   input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; }
   input[type=number] { -moz-appearance:textfield; }
+  input[type=number] { scroll-behavior:none; }
 
   /* APPLE-STYLE CONFIRM DIALOG */
   .apple-confirm-overlay {
@@ -864,8 +865,15 @@ function init() {
   document.getElementById('shop-select').value = savedShop;
   updateShopUI();
 
-  const today = new Date();
-  document.getElementById('entry-date').value = today.toISOString().slice(0,10);
+  const savedShopForDate = document.getElementById('shop-select').value;
+  const shopEntriesForDate = data.entries.filter(e => (e.shop || 'К3') === savedShopForDate);
+  let defaultDate;
+  if (shopEntriesForDate.length > 0) {
+    defaultDate = shopEntriesForDate[shopEntriesForDate.length - 1].date;
+  } else {
+    defaultDate = new Date().toISOString().slice(0,10);
+  }
+  document.getElementById('entry-date').value = defaultDate;
   addZ(); addZ();
   addRko();
   addSafeRko();
@@ -2006,14 +2014,44 @@ function importBackup(event) {
         toast('Неверный формат файла'); return;
       }
 
-      // Считаем сколько новых записей
-      const existingKeys = new Set(data.entries.map(e => e.date + '|' + (e.shop||'К3')));
-      const newEntries = imported.entries.filter(e => !existingKeys.has(e.date + '|' + (e.shop||'К3')));
-      const dupCount = imported.entries.length - newEntries.length;
+      // Считаем «вес» записи — сколько данных в ней заполнено
+      function entryWeight(en) {
+        let w = 0;
+        if (parseFloat(en.terminal)) w++;
+        if (parseFloat(en.nalFact)) w++;
+        if ((en.z||[]).some(z => parseFloat(z))) w++;
+        if ((en.rko||[]).some(r => parseFloat(r.amount))) w++;
+        if (parseFloat(en.ostatokK1)) w++;
+        if (parseFloat(en.ostatokK2)) w++;
+        return w;
+      }
+
+      // Строим карту существующих записей по ключу дата|магазин
+      const existingMap = {};
+      data.entries.forEach(en => {
+        existingMap[en.date + '|' + (en.shop||'К3')] = en;
+      });
+
+      let added = 0, replaced = 0, skipped = 0;
+      imported.entries.forEach(imp => {
+        const key = imp.date + '|' + (imp.shop||'К3');
+        const cur = existingMap[key];
+        if (!cur) {
+          existingMap[key] = imp;
+          added++;
+        } else if (entryWeight(imp) > entryWeight(cur)) {
+          // В файле запись полнее — заменяем
+          existingMap[key] = imp;
+          replaced++;
+        } else {
+          skipped++;
+        }
+      });
 
       let msg = `Файл от ${(payload.savedAt||'').slice(0,10) || 'неизвестной даты'}.\n`;
-      msg += `Новых записей: ${newEntries.length}`;
-      if (dupCount > 0) msg += `, дублей (пропущено): ${dupCount}`;
+      msg += `Новых: ${added}`;
+      if (replaced > 0) msg += `, восстановлено (перезаписано): ${replaced}`;
+      if (skipped > 0) msg += `, без изменений: ${skipped}`;
       msg += '.';
 
       appleConfirm(
@@ -2021,8 +2059,7 @@ function importBackup(event) {
         msg,
         'Восстановить',
         () => {
-          // Мержим: существующие остаются, новые добавляются
-          data.entries = [...data.entries, ...newEntries]
+          data.entries = Object.values(existingMap)
             .sort((a,b) => a.date.localeCompare(b.date) || (a.shop||'').localeCompare(b.shop||''));
 
           // Мержим справочник РКО без дублей
@@ -2031,7 +2068,7 @@ function importBackup(event) {
           data.rkoRef = Array.from(rkoSet);
 
           localStorage.setItem('kassa_data2', JSON.stringify(data));
-          toast(`Восстановлено: +${newEntries.length} записей ✓`);
+          toast(`Восстановлено: +${added} новых, ${replaced} обновлено ✓`);
           location.reload();
         }
       );
@@ -2149,6 +2186,13 @@ function toast(msg) {
   await syncOnStartupKassa();
   init();
 })();
+
+// Отключаем изменение значений колесом мыши для всех числовых полей
+document.addEventListener('wheel', function(e) {
+  if (document.activeElement && document.activeElement.type === 'number') {
+    document.activeElement.blur();
+  }
+}, { passive: false });
 </script>
 </body>
 </html>
