@@ -2014,44 +2014,27 @@ function importBackup(event) {
         toast('Неверный формат файла'); return;
       }
 
-      // Считаем «вес» записи — сколько данных в ней заполнено
-      function entryWeight(en) {
-        let w = 0;
-        if (parseFloat(en.terminal)) w++;
-        if (parseFloat(en.nalFact)) w++;
-        if ((en.z||[]).some(z => parseFloat(z))) w++;
-        if ((en.rko||[]).some(r => parseFloat(r.amount))) w++;
-        if (parseFloat(en.ostatokK1)) w++;
-        if (parseFloat(en.ostatokK2)) w++;
-        return w;
-      }
-
       // Строим карту существующих записей по ключу дата|магазин
       const existingMap = {};
       data.entries.forEach(en => {
         existingMap[en.date + '|' + (en.shop||'К3')] = en;
       });
 
-      let added = 0, replaced = 0, skipped = 0;
+      // Записи из файла всегда побеждают — пользователь сам выбрал восстановление из бэкапа
+      let added = 0, replaced = 0;
       imported.entries.forEach(imp => {
         const key = imp.date + '|' + (imp.shop||'К3');
-        const cur = existingMap[key];
-        if (!cur) {
-          existingMap[key] = imp;
+        if (!existingMap[key]) {
           added++;
-        } else if (entryWeight(imp) > entryWeight(cur)) {
-          // В файле запись полнее — заменяем
-          existingMap[key] = imp;
-          replaced++;
         } else {
-          skipped++;
+          replaced++;
         }
+        existingMap[key] = imp;
       });
 
       let msg = `Файл от ${(payload.savedAt||'').slice(0,10) || 'неизвестной даты'}.\n`;
       msg += `Новых: ${added}`;
-      if (replaced > 0) msg += `, восстановлено (перезаписано): ${replaced}`;
-      if (skipped > 0) msg += `, без изменений: ${skipped}`;
+      if (replaced > 0) msg += `, перезаписано: ${replaced}`;
       msg += '.';
 
       appleConfirm(
