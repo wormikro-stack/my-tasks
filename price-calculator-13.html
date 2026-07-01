@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Калькулятор цен</title>
+  <meta name="application-name" content="Калькулятор цен" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Калькулятор" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- Inline SVG иконка через data URI -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a0a0f'/><text y='68' x='50' text-anchor='middle' font-size='58' font-family='system-ui'>₴</text></svg>" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a0a0f'/><text y='68' x='50' text-anchor='middle' font-size='58' font-family='system-ui'>₴</text></svg>" />
+
+  <!-- Inline Web App Manifest -->
+  <link rel="manifest" href="data:application/manifest+json,{
+    &quot;name&quot;: &quot;Калькулятор цен&quot;,
+    &quot;short_name&quot;: &quot;Калькулятор&quot;,
+    &quot;description&quot;: &quot;Закупка, реализация, наценка и скидки&quot;,
+    &quot;start_url&quot;: &quot;.&quot;,
+    &quot;display&quot;: &quot;standalone&quot;,
+    &quot;background_color&quot;: &quot;%230a0a0f&quot;,
+    &quot;theme_color&quot;: &quot;%230a0a0f&quot;,
+    &quot;orientation&quot;: &quot;portrait&quot;,
+    &quot;icons&quot;: [{
+      &quot;src&quot;: &quot;data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a0a0f'/><text y='68' x='50' text-anchor='middle' font-size='58' font-family='system-ui'>₴</text></svg>&quot;,
+      &quot;sizes&quot;: &quot;any&quot;,
+      &quot;type&quot;: &quot;image/svg+xml&quot;,
+      &quot;purpose&quot;: &quot;any maskable&quot;
+    }]
+  }" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #1c1c1e;
+      --surface2: #2c2c2e;
+      --surface3: #3a3a3c;
+      --border: rgba(255,255,255,0.08);
+      --border-active: rgba(255,255,255,0.2);
+      --text-primary: #f5f5f7;
+      --text-secondary: #8e8e93;
+      --text-tertiary: #48484a;
+      --accent: #0a84ff;
+      --accent-glow: rgba(10, 132, 255, 0.3);
+      --green: #30d158;
+      --green-glow: rgba(48, 209, 88, 0.25);
+      --red: #ff453a;
+      --red-glow: rgba(255, 69, 58, 0.25);
+      --orange: #ff9f0a;
+      --radius-sm: 10px;
+      --radius-md: 16px;
+      --radius-lg: 22px;
+      --blur: blur(20px);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: block;
+      min-height: 100vh;
+      padding: 16px 16px 32px;
+      background:
+        radial-gradient(ellipse 60% 40% at 30% 0%, rgba(10,132,255,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 80% 80%, rgba(48,209,88,0.04) 0%, transparent 60%),
+        var(--bg);
+    }
+
+    .card {
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px 28px;
+      box-shadow:
+        0 0 0 0.5px rgba(255,255,255,0.05) inset,
+        0 32px 64px rgba(0,0,0,0.6),
+        0 8px 24px rgba(0,0,0,0.4);
+      animation: fadeUp 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .card-header {
+      margin-bottom: 28px;
+    }
+
+    .card-title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.4px;
+      color: var(--text-primary);
+    }
+
+    .card-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      font-weight: 400;
+      letter-spacing: 0.1px;
+    }
+
+    .fields {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .field-wrapper {
+      flex: 1;
+      position: relative;
+    }
+
+    .field-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .field-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+
+    .field-input-wrap:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+      background: rgba(28,28,30,0.9);
+    }
+
+    .field-input-wrap.frozen {
+      border-color: rgba(255, 159, 10, 0.4);
+      background: rgba(255, 159, 10, 0.06);
+    }
+
+    .field-input-wrap.frozen:focus-within {
+      box-shadow: 0 0 0 3px rgba(255,159,10,0.2);
+    }
+
+    .currency-sym {
+      padding: 0 0 0 13px;
+      font-size: 15px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .field-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-primary);
+      padding: 13px 13px 13px 8px;
+      min-width: 0;
+      font-family: inherit;
+      letter-spacing: -0.2px;
+    }
+
+    .field-input::placeholder { color: var(--text-tertiary); font-weight: 400; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
+
+    .field-input:disabled {
+      color: var(--text-secondary);
+      cursor: default;
+    }
+
+    .percent-sym {
+      padding: 0 8px 0 0;
+      font-size: 14px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      user-select: none;
+    }
+
+    /* Clear button (outside field — for purchase & sale) */
+    .btn-clear {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.18s;
+      outline: none;
+    }
+    .btn-clear:hover { background: var(--surface3); color: var(--text-primary); border-color: var(--border-active); }
+    .btn-clear:active { transform: scale(0.92); }
+    .btn-clear svg { width: 14px; height: 14px; }
+
+    /* Freeze toggle */
+    .freeze-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      outline: none;
+    }
+    .freeze-btn:hover { background: var(--surface3); border-color: var(--border-active); }
+    .freeze-btn.active {
+      background: rgba(255,159,10,0.15);
+      border-color: rgba(255,159,10,0.5);
+      color: var(--orange);
+      box-shadow: 0 0 0 3px rgba(255,159,10,0.12);
+    }
+    .freeze-btn svg { width: 15px; height: 15px; }
+
+
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.18s;
+      outline: none;
+      margin-right: 4px;
+    }
+    .field-icon-btn:hover { background: var(--surface3); color: var(--text-secondary); }
+    .field-icon-btn:active { transform: scale(0.88); }
+    .field-icon-btn svg { width: 15px; height: 15px; }
+
+    .field-icon-btn.freeze-inline.active {
+      color: var(--orange);
+      background: rgba(255,159,10,0.12);
+    }
+    .field-icon-btn.freeze-inline.active:hover {
+      background: rgba(255,159,10,0.2);
+    }
+
+    .field-icon-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border);
+      flex-shrink: 0;
+      margin-right: 4px;
+    }
+
+
+
+    /* Markup badge */
+    .markup-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: -2px;
+      margin-bottom: 6px;
+      padding: 0 2px;
+      min-height: 22px;
+    }
+
+    .markup-badge {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--green);
+      background: var(--green-glow);
+      padding: 2px 9px;
+      border-radius: 20px;
+      letter-spacing: 0.1px;
+      transition: opacity 0.3s;
+      border: 1px solid rgba(48,209,88,0.2);
+    }
+
+    .markup-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* Action buttons */
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      padding: 14px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: -0.2px;
+      transition: all 0.18s;
+      font-family: inherit;
+      box-shadow: 0 4px 16px rgba(10,132,255,0.3);
+      outline: none;
+    }
+    .btn-primary:hover { background: #1a8fff; box-shadow: 0 6px 20px rgba(10,132,255,0.4); transform: translateY(-1px); }
+    .btn-primary:active { transform: scale(0.98) translateY(0); box-shadow: 0 2px 8px rgba(10,132,255,0.3); }
+
+    .btn-secondary {
+      padding: 14px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.18s;
+      font-family: inherit;
+      white-space: nowrap;
+      outline: none;
+      letter-spacing: -0.1px;
+    }
+    .btn-secondary:hover { background: var(--surface3); border-color: var(--border-active); transform: translateY(-1px); }
+    .btn-secondary:active { transform: scale(0.98); }
+
+    /* ======================== MODAL ======================== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 16px 16px 32px;
+      overflow-y: auto;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 360px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.05) inset;
+      transform: translateY(16px) scale(0.97);
+      transition: transform 0.3s cubic-bezier(0.34,1.3,0.64,1);
+    }
+    .modal-overlay.open .modal {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    .modal-close {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.18s;
+      outline: none;
+    }
+    .modal-close:hover { background: var(--surface3); color: var(--text-primary); }
+    .modal-close svg { width: 12px; height: 12px; }
+
+    .settings-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--surface2);
+      color: var(--text-secondary); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all 0.18s; outline: none; flex-shrink: 0;
+    }
+    .settings-btn:hover { background: var(--surface3); color: var(--text-primary); border-color: var(--border-active); }
+    .settings-btn:active { transform: scale(0.92); }
+
+    .settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px 14px;
+    }
+    .settings-label { font-size: 14px; color: var(--text-primary); font-weight: 500; }
+    .key-btn {
+      min-width: 44px; padding: 8px 14px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface3);
+      color: var(--text-primary); font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; outline: none;
+      text-align: center; font-family: inherit; letter-spacing: -0.3px;
+    }
+    .key-btn:hover { border-color: var(--border-active); background: var(--surface); }
+    .key-btn.capturing {
+      border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+      background: rgba(10,132,255,0.1); color: var(--accent);
+    }
+
+    .modal-fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+
+    /* Result block */
+    .result-block {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 80px;
+      justify-content: center;
+      transition: all 0.3s;
+    }
+
+    .result-empty {
+      text-align: center;
+      color: var(--text-tertiary);
+      font-size: 13px;
+    }
+
+    .result-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .result-key {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .result-val {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    .result-val.red { color: var(--red); }
+    .result-val.big {
+      font-size: 26px;
+      letter-spacing: -0.8px;
+      color: var(--red);
+    }
+
+    .result-val.green { color: var(--green); }
+
+    .result-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2px 0;
+    }
+
+    .discount-big {
+      text-align: center;
+      padding: 6px 0 4px;
+    }
+
+    .discount-pct {
+      font-size: 44px;
+      font-weight: 700;
+      letter-spacing: -2px;
+      color: var(--red);
+      line-height: 1;
+      display: block;
+    }
+
+    .discount-caption {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      display: block;
+    }
+
+    /* Separator */
+    .separator {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+
+    /* Freeze hint */
+    .hint {
+      font-size: 11.5px;
+      color: var(--text-tertiary);
+      text-align: center;
+      margin-top: 12px;
+      letter-spacing: 0.1px;
+    }
+    .hint span { color: var(--orange); }
+
+    /* Save button */
+    .btn-save {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 14px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(48,209,88,0.3);
+      background: rgba(48,209,88,0.08);
+      color: var(--green);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+      font-family: inherit;
+      white-space: nowrap;
+      outline: none;
+      flex-shrink: 0;
+    }
+    .btn-save:hover { background: rgba(48,209,88,0.15); border-color: rgba(48,209,88,0.5); transform: translateY(-1px); }
+    .btn-save:active { transform: scale(0.97); }
+
+    .btn-reset {
+      width: 46px;
+      height: 46px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.18s;
+      outline: none;
+    }
+    .btn-reset:hover { background: var(--surface3); color: var(--text-primary); border-color: var(--border-active); transform: translateY(-1px); }
+    .btn-reset:active { transform: scale(0.93); }
+
+    /* Saved section */
+    .saved-section {
+      width: 100%;
+      max-width: 420px;
+      margin: 12px auto 0;
+    }
+
+    .saved-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+      margin-bottom: 8px;
+    }
+
+    .saved-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .saved-clear-all {
+      font-size: 12px;
+      color: var(--red);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      opacity: 0.7;
+      padding: 4px 0;
+      transition: opacity 0.15s;
+    }
+    .saved-clear-all:hover { opacity: 1; }
+
+    .saved-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .saved-entry {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: fadeUp 0.3s cubic-bezier(0.34,1.3,0.64,1) both;
+    }
+
+    .saved-entry-nums {
+      flex: 1;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .saved-col {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .saved-col-label {
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--text-tertiary);
+    }
+
+    .saved-col-val {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.3px;
+    }
+
+    .saved-col-val.green { color: var(--green); }
+    .saved-col-val.red   { color: var(--red); }
+
+    .saved-entry-time {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+      align-self: flex-start;
+    }
+
+    .saved-delete {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.15s;
+      outline: none;
+    }
+    .saved-delete:hover { background: rgba(255,69,58,0.12); color: var(--red); }
+    .saved-delete svg { width: 12px; height: 12px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-header">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+      <div>
+        <div class="card-title">Калькулятор цен</div>
+        <div class="card-subtitle">Закупка · Реализация · Наценка</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="settings-btn" onclick="window.location.href='index.html'" title="На главную" style="font-size:16px;line-height:1;">←</button>
+        <button class="settings-btn" onclick="openSettings()" title="Настройки">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="fields">
+
+    <!-- Закупка -->
+    <div>
+      <div class="field-label">Цена закупки</div>
+      <div class="field-row">
+        <div class="field-wrapper">
+          <div class="field-input-wrap" id="wrap-purchase">
+            <span class="currency-sym">₴</span>
+            <input class="field-input" id="purchase" type="number" min="0" step="0.01" placeholder="0.00" />
+          </div>
+        </div>
+        <button class="btn-clear" onclick="clearField('purchase', event)" title="Очистить">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Реализация -->
+    <div>
+      <div class="field-label">Цена реализации</div>
+      <div class="field-row">
+        <div class="field-wrapper">
+          <div class="field-input-wrap" id="wrap-sale">
+            <span class="currency-sym">₴</span>
+            <input class="field-input" id="sale" type="number" min="0" step="0.01" placeholder="0.00" />
+          </div>
+        </div>
+        <button class="btn-clear" onclick="clearField('sale', event)" title="Очистить">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Наценка -->
+    <div>
+      <div class="field-label">Наценка</div>
+      <div class="markup-row" id="markup-row">
+        <span class="markup-label" id="profit-label" style="opacity:0">Прибыль:</span>
+        <span class="markup-badge" id="markup-badge" style="opacity:0">—</span>
+      </div>
+      <div class="field-row">
+        <div class="field-wrapper" style="flex: 0 0 auto; width: calc(100% - 88px);">
+          <div class="field-input-wrap" id="wrap-markup">
+            <input class="field-input" id="markup" type="number" min="0" step="0.1" placeholder="0.0" />
+            <span class="percent-sym">%</span>
+          </div>
+        </div>
+        <button class="freeze-btn" id="freeze-btn" onclick="toggleFreeze()" title="Заморозить процент">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="2" x2="12" y2="22"/>
+            <path d="M17 7l-5-5-5 5"/><path d="M17 17l-5 5-5-5"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M7 7l-5 5 5 5"/><path d="M17 7l5 5-5 5"/>
+          </svg>
+        </button>
+        <button class="btn-clear" onclick="clearField('markup', event)" title="Очистить">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint" id="freeze-hint" style="opacity:0">
+    <span>❄</span> Процент заморожен — цена реализации считается автоматически
+  </div>
+
+  <div class="separator"></div>
+
+  <div class="actions">
+    <button class="btn-save" onclick="saveEntry()">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+        <path d="M17 21H3a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+        <polyline points="17 21 17 13 7 13 7 21"/>
+        <polyline points="7 3 7 8 15 8"/>
+      </svg>
+      Сохранить
+    </button>
+    <button class="btn-reset" onclick="resetFields(event)" title="Очистить поля">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+        <polyline points="1 4 1 10 7 10"/>
+        <path d="M3.51 15a9 9 0 1 0 .49-4"/>
+      </svg>
+    </button>
+    <button class="btn-primary" onclick="openDiscount()">% Скидка</button>
+  </div>
+</div>
+
+<!-- SAVED ENTRIES -->
+<div class="saved-section" id="saved-section" style="display:none;">
+  <div class="saved-header">
+    <span class="saved-title">Сохранённые</span>
+    <button class="saved-clear-all" onclick="clearAll(event)">Очистить всё</button>
+  </div>
+  <div class="saved-list" id="saved-list"></div>
+</div>
+
+<!-- DISCOUNT MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Расчёт скидки</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="modal-close" onclick="resetDiscount(event)" title="Очистить поля">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 .49-4"/>
+          </svg>
+        </button>
+        <button class="modal-close" onclick="closeDiscount()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-fields">
+      <!-- Сумма до скидки -->
+      <div>
+        <div class="field-label">Сумма до скидки</div>
+        <div class="field-row">
+          <div class="field-wrapper">
+            <div class="field-input-wrap" id="wrap-before">
+              <span class="currency-sym">₴</span>
+              <input class="field-input" id="disc-before" type="number" min="0" step="0.01" placeholder="0.00" oninput="calcDiscount()" />
+            </div>
+          </div>
+          <button class="btn-clear" onclick="clearDiscField('disc-before', event)" title="Очистить">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Сумма со скидкой -->
+      <div>
+        <div class="field-label">Сумма со скидкой</div>
+        <div class="field-row">
+          <div class="field-wrapper">
+            <div class="field-input-wrap" id="wrap-after">
+              <span class="currency-sym">₴</span>
+              <input class="field-input" id="disc-after" type="number" min="0" step="0.01" placeholder="0.00" oninput="calcDiscount()" />
+            </div>
+          </div>
+          <button class="btn-clear" onclick="clearDiscField('disc-after', event)" title="Очистить">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-block" id="disc-result">
+      <div class="result-empty">Введите суммы выше</div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settings-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Настройки</div>
+      <button class="modal-close" onclick="closeSettings()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-fields">
+      <div class="settings-row">
+        <span class="settings-label">Скидка</span>
+        <button class="key-btn" id="key-discount" onclick="captureKey('discount')">C</button>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">На главный</span>
+        <button class="key-btn" id="key-main" onclick="captureKey('main')">D</button>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Очистка</span>
+        <button class="key-btn" id="key-clear" onclick="captureKey('clear')">Del</button>
+      </div>
+    </div>
+    <div style="text-align:center;font-size:11.5px;color:var(--text-tertiary);margin-top:2px;">Нажмите на клавишу, затем нажмите новую</div>
+  </div>
+</div>
+
+<script>
+  let frozen = false;
+  let markupFocused = false;
+
+  // ─── Inputs ────────────────────────────────────────────
+  const purchaseEl = document.getElementById('purchase');
+  const saleEl     = document.getElementById('sale');
+  const markupEl   = document.getElementById('markup');
+
+  purchaseEl.addEventListener('input', onPurchaseInput);
+  saleEl.addEventListener('input', onSaleInput);
+  markupEl.addEventListener('input', onMarkupInput);
+  markupEl.addEventListener('focus', () => markupFocused = true);
+  markupEl.addEventListener('blur',  () => markupFocused = false);
+
+  function fmt(n) {
+    return n % 1 === 0 ? n.toFixed(0) : n.toFixed(2);
+  }
+
+  // При вводе закупки — пересчитать реализацию если есть процент
+  function onPurchaseInput() {
+    const p   = parseFloat(purchaseEl.value);
+    const pct = parseFloat(markupEl.value);
+    if (!isNaN(p) && !isNaN(pct) && p > 0) {
+      saleEl.value = fmt(p * (1 + pct / 100));
+    }
+    updateMarkupBadge();
+  }
+
+  // При вводе реализации — обновить бейдж (не трогать поле процентов)
+  function onSaleInput() {
+    updateMarkupBadge();
+  }
+
+  // При вводе процента — пересчитать реализацию если есть закупка
+  function onMarkupInput() {
+    const p   = parseFloat(purchaseEl.value);
+    const pct = parseFloat(markupEl.value);
+    if (!isNaN(p) && !isNaN(pct) && p > 0) {
+      saleEl.value = fmt(p * (1 + pct / 100));
+    } else if (markupEl.value === '' || isNaN(pct)) {
+      saleEl.value = '';
+    }
+    updateMarkupBadge();
+  }
+
+  function updateMarkupBadge() {
+    const p     = parseFloat(purchaseEl.value);
+    const s     = parseFloat(saleEl.value);
+    const badge = document.getElementById('markup-badge');
+    const label = document.getElementById('profit-label');
+
+    if (!isNaN(p) && !isNaN(s) && p > 0 && s > 0) {
+      const markup = ((s - p) / p) * 100;
+      const profit = s - p;
+      const isProfit = profit >= 0;
+
+      label.textContent   = isProfit ? 'Прибыль:' : 'Убыток:';
+      badge.textContent   = (isProfit ? '+' : '−') + '₴' + fmt(Math.abs(profit));
+      badge.style.background  = isProfit ? 'rgba(48,209,88,0.15)'  : 'rgba(255,69,58,0.15)';
+      badge.style.color       = isProfit ? 'var(--green)'          : 'var(--red)';
+      badge.style.borderColor = isProfit ? 'rgba(48,209,88,0.25)'  : 'rgba(255,69,58,0.25)';
+      badge.style.opacity = '1';
+      label.style.opacity = '1';
+
+      if (!markupFocused && !frozen) {
+        markupEl.value = markup.toFixed(2);
+      }
+    } else {
+      badge.style.opacity = '0';
+      label.style.opacity = '0';
+      if (!markupFocused && !frozen) markupEl.value = '';
+    }
+  }
+
+  function clearField(id, e) {
+    const el = document.getElementById(id);
+    el.value = '';
+    el.focus();
+    if (id === 'markup') {
+      saleEl.value = '';
+      document.getElementById('markup-badge').style.opacity = '0';
+      document.getElementById('markup-label').style.opacity = '0';
+    }
+    updateMarkupBadge();
+    if (e && e.currentTarget) fw(e.currentTarget, 25);
+  }
+
+  function calculate() {
+    const p   = parseFloat(purchaseEl.value);
+    const s   = parseFloat(saleEl.value);
+    const pct = parseFloat(markupEl.value);
+
+    if (isNaN(p) && isNaN(s)) { pulse('wrap-purchase'); return; }
+
+    if (!isNaN(p) && !isNaN(s) && p > 0) {
+      const markup = ((s - p) / p) * 100;
+      markupEl.value = markup.toFixed(2);
+      updateMarkupBadge();
+    } else if (!isNaN(p) && !isNaN(pct) && p > 0) {
+      saleEl.value = fmt(p * (1 + pct / 100));
+      updateMarkupBadge();
+    } else if (!isNaN(s) && !isNaN(pct)) {
+      purchaseEl.value = fmt(s / (1 + pct / 100));
+      updateMarkupBadge();
+    }
+  }
+
+  function toggleFreeze() {
+    frozen = !frozen;
+    const btn  = document.getElementById('freeze-btn');
+    const wrap = document.getElementById('wrap-markup');
+    const hint = document.getElementById('freeze-hint');
+
+    if (frozen) {
+      btn.classList.add('active');
+      wrap.classList.add('frozen');
+      hint.style.opacity = '1';
+      markupEl.setAttribute('readonly', '');
+    } else {
+      btn.classList.remove('active');
+      wrap.classList.remove('frozen');
+      hint.style.opacity = '0';
+      markupEl.removeAttribute('readonly');
+    }
+  }
+
+  function pulse(wrapId) {
+    const el = document.getElementById(wrapId);
+    el.style.borderColor = 'var(--red)';
+    el.style.boxShadow = '0 0 0 3px var(--red-glow)';
+    setTimeout(() => {
+      el.style.borderColor = '';
+      el.style.boxShadow = '';
+    }, 800);
+  }
+
+  // ─── Discount Modal ─────────────────────────────────────
+  function openDiscount() {
+    document.getElementById('modal-overlay').classList.add('open');
+    setTimeout(() => {
+      const el = document.getElementById('disc-before');
+      el.focus();
+      if (el.value !== '') el.select();
+    }, 200);
+  }
+
+  function closeDiscount() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+
+  function resetDiscount(e) {
+    const before = document.getElementById('disc-before');
+    const after  = document.getElementById('disc-after');
+    before.value = '';
+    after.value  = '';
+    document.getElementById('disc-result').innerHTML = '<div class="result-empty">Введите суммы выше</div>';
+    before.focus();
+    if (e && e.currentTarget) fw(e.currentTarget, 35);
+    else fw(document.querySelector('.modal'), 35);
+  }
+
+  // Enter между полями скидки
+  document.getElementById('disc-before').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const el = document.getElementById('disc-after');
+      el.focus();
+      if (el.value !== '') el.select();
+    }
+  });
+  document.getElementById('disc-after').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const el = document.getElementById('disc-before');
+      el.focus();
+      if (el.value !== '') el.select();
+    }
+  });
+
+  document.getElementById('modal-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeDiscount();
+  });
+
+  function clearDiscField(id, e) {
+    const el = document.getElementById(id);
+    el.value = '';
+    el.focus();
+    calcDiscount();
+    if (e && e.currentTarget) fw(e.currentTarget, 25);
+  }
+
+  function calcDiscount() {
+    const before = parseFloat(document.getElementById('disc-before').value);
+    const after  = parseFloat(document.getElementById('disc-after').value);
+    const res    = document.getElementById('disc-result');
+
+    if (isNaN(before) || isNaN(after) || before <= 0 || after < 0) {
+      res.innerHTML = '<div class="result-empty">Введите суммы выше</div>';
+      return;
+    }
+
+    if (after >= before) {
+      res.innerHTML = '<div class="result-empty" style="color:var(--orange)">Сумма со скидкой должна быть меньше</div>';
+      return;
+    }
+
+    const diff    = before - after;
+    // Обратная скидка: относительно цены после скидки
+    const pctBack = (diff / after) * 100;
+    // Прямая скидка: относительно цены до скидки
+    const pctDirect = (diff / before) * 100;
+
+    res.innerHTML = `
+      <div class="discount-big">
+        <span class="discount-pct">−${pctDirect.toFixed(1)}%</span>
+        <span class="discount-caption">прямая скидка от цены до скидки</span>
+      </div>
+      <div class="result-divider"></div>
+      <div class="result-line">
+        <span class="result-key">Снижение суммы</span>
+        <span class="result-val red">−₴${fmt(diff)}</span>
+      </div>
+      <div class="result-line">
+        <span class="result-key">Обратная скидка <span style="font-size:11px;color:var(--text-tertiary)">(от новой цены)</span></span>
+        <span class="result-val" style="color:var(--orange)">+${pctBack.toFixed(1)}%</span>
+      </div>
+    `;
+  }
+
+  // ─── Settings ─────────────────────────────────────────────
+  const HOTKEY_DEFAULTS = { discount: 'c', main: 'd', clear: 'Delete' };
+  let hotkeys = JSON.parse(localStorage.getItem('price-calc-hotkeys') || 'null') || { ...HOTKEY_DEFAULTS };
+  let capturing = null;
+
+  function saveHotkeys() {
+    localStorage.setItem('price-calc-hotkeys', JSON.stringify(hotkeys));
+    renderHotkeys();
+  }
+
+  function fmtKey(hk) {
+    if (!hk) return '—';
+    return hk.split('+').map(p => p === 'Delete' ? 'Del' : p === ' ' ? 'Space' : p.length === 1 ? p.toUpperCase() : p).join('+');
+  }
+
+  function renderHotkeys() {
+    const ids = { discount: 'key-discount', main: 'key-main', clear: 'key-clear' };
+    for (const [k, id] of Object.entries(ids)) {
+      const btn = document.getElementById(id);
+      if (btn) btn.textContent = fmtKey(hotkeys[k]);
+    }
+  }
+
+  function captureKey(name) {
+    if (capturing) document.getElementById('key-' + capturing).classList.remove('capturing');
+    capturing = name;
+    const btn = document.getElementById('key-' + name);
+    btn.classList.add('capturing');
+    btn.textContent = '...';
+  }
+
+  function cancelCapture() {
+    if (capturing) document.getElementById('key-' + capturing).classList.remove('capturing');
+    capturing = null;
+    renderHotkeys();
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (!capturing) return;
+    e.preventDefault();
+    const name = capturing;
+    document.getElementById('key-' + name).classList.remove('capturing');
+    let key = e.key;
+    if (key === ' ') key = 'Space';
+    if (key === 'Escape') { cancelCapture(); return; }
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return;
+    const mods = [];
+    if (e.ctrlKey) mods.push('Ctrl');
+    if (e.altKey) mods.push('Alt');
+    if (e.shiftKey) mods.push('Shift');
+    if (e.metaKey) mods.push('Meta');
+    mods.push(key);
+    hotkeys[name] = mods.join('+');
+    saveHotkeys();
+    capturing = null;
+    renderHotkeys();
+  });
+
+  function openSettings() {
+    document.getElementById('settings-overlay').classList.add('open');
+    renderHotkeys();
+  }
+
+  function closeSettings() {
+    document.getElementById('settings-overlay').classList.remove('open');
+    cancelCapture();
+  }
+
+  document.getElementById('settings-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeSettings();
+  });
+
+  // ─── Enter переключает между полями ───────────────────
+  function focusNext(el) {
+    el.focus();
+    if (el.value !== '') el.select();
+  }
+
+  purchaseEl.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); focusNext(saleEl); }
+  });
+  saleEl.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); focusNext(markupEl); }
+  });
+  markupEl.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); focusNext(purchaseEl); }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (capturing) return;
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    const isInput = (tag === 'INPUT' || tag === 'TEXTAREA');
+    const modalOpen = document.getElementById('modal-overlay').classList.contains('open');
+    const settingsOpen = document.getElementById('settings-overlay').classList.contains('open');
+
+    if (e.key === 'Escape') {
+      if (settingsOpen) { closeSettings(); return; }
+      closeDiscount();
+      return;
+    }
+
+    if (settingsOpen) return;
+
+    const matchKey = (hk) => {
+      if (!hk) return false;
+      const parts = hk.split('+');
+      const key = parts.pop();
+      if (['Delete','Escape','Space','Tab','Enter','Backspace'].includes(key)) {
+        if (e.key !== key) return false;
+      } else {
+        if (e.key.toLowerCase() !== key.toLowerCase()) return false;
+      }
+      return e.ctrlKey === parts.includes('Ctrl') && e.altKey === parts.includes('Alt') && e.shiftKey === parts.includes('Shift') && e.metaKey === parts.includes('Meta');
+    };
+
+    if (matchKey(hotkeys.clear)) {
+      e.preventDefault();
+      if (modalOpen) { resetDiscount(); }
+      else { resetFields(); }
+      return;
+    }
+
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (matchKey(hotkeys.main)) {
+        if (modalOpen) {
+          e.preventDefault();
+          closeDiscount();
+          setTimeout(() => {
+            document.getElementById('purchase').focus();
+            if (document.getElementById('purchase').value !== '') document.getElementById('purchase').select();
+          }, 50);
+          return;
+        }
+      }
+      if (matchKey(hotkeys.discount)) {
+        if (!modalOpen) {
+          e.preventDefault();
+          openDiscount();
+        }
+        return;
+      }
+    }
+  });
+
+  // ─── Сохранение записей ────────────────────────────────
+  let entries = JSON.parse(localStorage.getItem('price-calc-entries') || '[]');
+
+  function saveEntry() {
+    const p   = parseFloat(purchaseEl.value);
+    const s   = parseFloat(saleEl.value);
+    const pct = parseFloat(markupEl.value);
+
+    if (isNaN(p) || isNaN(s)) {
+      // Подсветить незаполненные поля
+      if (isNaN(p)) pulse('wrap-purchase');
+      if (isNaN(s)) pulse('wrap-sale');
+      return;
+    }
+
+    const markup = isNaN(pct) ? ((s - p) / p * 100) : pct;
+    const now = new Date();
+    const time = now.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+    const date = now.toLocaleDateString('ru', { day: '2-digit', month: '2-digit' });
+
+    entries.unshift({ id: Date.now(), purchase: p, sale: s, markup: markup, time, date });
+    localStorage.setItem('price-calc-entries', JSON.stringify(entries));
+    renderEntries();
+
+    // Flash анимация кнопки
+    const btn = document.querySelector('.btn-save');
+    btn.style.background = 'rgba(48,209,88,0.25)';
+    btn.style.borderColor = 'rgba(48,209,88,0.7)';
+    setTimeout(() => {
+      btn.style.background = '';
+      btn.style.borderColor = '';
+    }, 400);
+  }
+
+  function deleteEntry(id, e) {
+    entries = entries.filter(entry => entry.id !== id);
+    localStorage.setItem('price-calc-entries', JSON.stringify(entries));
+    renderEntries();
+    if (e && e.currentTarget) fw(e.currentTarget, 20);
+  }
+
+  function clearAll(e) {
+    entries = [];
+    localStorage.removeItem('price-calc-entries');
+    renderEntries();
+    if (e && e.currentTarget) fw(e.currentTarget, 60);
+  }
+
+  function renderEntries() {
+    const section = document.getElementById('saved-section');
+    const list    = document.getElementById('saved-list');
+
+    if (entries.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+    list.innerHTML = entries.map(e => {
+      const isProfit = e.sale >= e.purchase;
+      const profit   = e.sale - e.purchase;
+      const markupSign = e.markup >= 0 ? '+' : '';
+      return `
+      <div class="saved-entry" id="entry-${e.id}">
+        <div class="saved-entry-nums">
+          <div class="saved-col">
+            <span class="saved-col-label">Закупка</span>
+            <span class="saved-col-val">₴${fmt(e.purchase)}</span>
+          </div>
+          <div class="saved-col">
+            <span class="saved-col-label">Реализация</span>
+            <span class="saved-col-val">₴${fmt(e.sale)}</span>
+          </div>
+          <div class="saved-col">
+            <span class="saved-col-label">Наценка</span>
+            <span class="saved-col-val ${isProfit ? 'green' : 'red'}">${markupSign}${e.markup.toFixed(1)}%</span>
+          </div>
+          <div class="saved-col">
+            <span class="saved-col-label">${isProfit ? 'Прибыль' : 'Убыток'}</span>
+            <span class="saved-col-val ${isProfit ? 'green' : 'red'}">${isProfit ? '+' : '−'}₴${fmt(Math.abs(profit))}</span>
+          </div>
+        </div>
+        <span class="saved-entry-time">${e.date}<br>${e.time}</span>
+        <button class="saved-delete" onclick="deleteEntry(${e.id}, event)" title="Удалить">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/>
+          </svg>
+        </button>
+      </div>
+    `}).join('');
+  }
+
+  function resetFields(e) {
+    purchaseEl.value = '';
+    saleEl.value = '';
+    markupEl.value = '';
+    document.getElementById('markup-badge').style.opacity = '0';
+    document.getElementById('profit-label').style.opacity = '0';
+    purchaseEl.focus();
+    if (e && e.currentTarget) fw(e.currentTarget, 45);
+    else fw(document.querySelector('.card'), 45);
+  }
+
+  // Загрузить при старте
+  renderEntries();
+
+  // ─── Fireworks ─────────────────────────────────────────
+  (function() {
+    const cvs = document.createElement('canvas');
+    const ctx = cvs.getContext('2d');
+    cvs.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;';
+    document.body.appendChild(cvs);
+    let W, H;
+    function rs() { W = cvs.width = window.innerWidth; H = cvs.height = window.innerHeight; }
+    window.addEventListener('resize', rs);
+    rs();
+    let pts = [];
+    const CL = ['#ff453a','#ff9f0a','#30d158','#0a84ff','#bf5af2','#ff6482','#ffd60a','#64d2ff'];
+    function brs(x, y, n) {
+      for (let i = 0; i < (n || 40); i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = Math.random() * 5 + 2;
+        pts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, c: CL[Math.floor(Math.random() * CL.length)], s: Math.random() * 4 + 2, l: 1, d: Math.random() * 0.018 + 0.008 });
+      }
+    }
+    function cn(el) { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
+    function loop() {
+      ctx.clearRect(0, 0, W, H);
+      for (let i = pts.length - 1; i >= 0; i--) {
+        const p = pts[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.05;
+        p.l -= p.d;
+        if (p.l <= 0) { pts.splice(i, 1); continue; }
+        ctx.globalAlpha = p.l;
+        ctx.shadowBlur = 12; ctx.shadowColor = p.c;
+        ctx.fillStyle = p.c;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.s * p.l, 0, Math.PI * 2); ctx.fill();
+      }
+      if (pts.length) requestAnimationFrame(loop);
+    }
+    window.fw = function(el, n) { const c = cn(el); brs(c.x, c.y, n); loop(); };
+    window.fwAt = function(x, y, n) { brs(x, y, n); loop(); };
+  })();
+
+  // ─── PWA Service Worker (inline) ───────────────────────
+  if ('serviceWorker' in navigator) {
+    const swCode = `
+      const CACHE = 'price-calc-v1';
+      self.addEventListener('install', e => {
+        self.skipWaiting();
+      });
+      self.addEventListener('fetch', e => {
+        e.respondWith(
+          caches.match(e.request).then(r => r || fetch(e.request).catch(() => new Response('')))
+        );
+      });
+    `;
+    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const swUrl = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swUrl).catch(() => {});
+  }
+</script>
+</body>
+</html>
