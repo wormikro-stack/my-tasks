@@ -567,6 +567,8 @@
     <input type="date" id="filterDate" class="date-input-nav" onchange="filterTasks()">
     <button class="btn btn-secondary btn-sm" onclick="setFilterAll()">Все дни</button>
     <button class="btn btn-secondary btn-sm" onclick="window.location.href='kassa.html'">📒 Реестр</button>
+    <button class="btn btn-secondary btn-sm" onclick="window.location.href='price-calculator-13.html'">🧮 Калькулятор</button>
+    <button class="btn btn-secondary btn-sm" onclick="window.location.href='compare.html'">📊 Сверка</button>
     <button class="btn btn-orange btn-sm" id="btnTransfer" onclick="openTransferModal()" style="margin-left: auto; display: none;">↷ Перенести дела</button>
   </div>
   <div id="mainCatFilter" class="cat-pills" style="display:none;"></div>
@@ -1027,6 +1029,10 @@
       <button class="btn btn-danger" style="justify-content: flex-start; width: 100%; padding: 12px 16px; font-size: 14px;" onclick="closeModal('modalMoreMenu'); openIncompleteModal()">⚠️ Долги</button>
       <button class="btn btn-secondary" style="justify-content: flex-start; width: 100%; padding: 12px 16px; font-size: 14px;" onclick="closeModal('modalMoreMenu'); openServicesModule()">🧾 Услуги</button>
       <button class="btn btn-secondary" style="justify-content: flex-start; width: 100%; padding: 12px 16px; font-size: 14px;" onclick="closeModal('modalMoreMenu'); openTrashModal()">🗑️ Корзина</button>
+      <div style="border-top:1px solid var(--glass-border); margin:4px 0;"></div>
+      <button class="btn btn-secondary" style="justify-content: flex-start; width: 100%; padding: 12px 16px; font-size: 14px;" onclick="closeModal('modalMoreMenu'); window.location.href='kassa.html'">📒 Кассовый реестр</button>
+      <button class="btn btn-secondary" style="justify-content: flex-start; width: 100%; padding: 12px 16px; font-size: 14px;" onclick="closeModal('modalMoreMenu'); window.location.href='price-calculator-13.html'">🧮 Калькулятор</button>
+      <button class="btn btn-secondary" style="justify-content: flex-start; width: 100%; padding: 12px 16px; font-size: 14px;" onclick="closeModal('modalMoreMenu'); window.location.href='compare.html'">📊 Сверка поставок</button>
     </div>
     <div class="modal-actions" style="margin-top: 16px;">
       <button class="btn btn-secondary" style="width: 100%;" onclick="closeModal('modalMoreMenu')">Закрыть</button>
