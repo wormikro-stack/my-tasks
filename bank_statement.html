@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Банковская выписка</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: #000;
+    color: #f5f5f7;
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .container {
+    max-width: 1200px;
+    width: 100%;
+  }
+
+  h1 {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #f5f5f7 0%, #a1a1a6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    color: #86868b;
+    font-size: 14px;
+    margin-bottom: 30px;
+  }
+
+  .upload-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 40px;
+    margin-bottom: 30px;
+    cursor: pointer;
+    transition: background 0.3s, border-color 0.3s;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+  }
+
+  .upload-area:hover, .upload-area.dragover {
+    border-color: #0071e3;
+    background: rgba(0, 113, 227, 0.08);
+  }
+
+  .upload-area .icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.6;
+  }
+
+  .upload-area h2 {
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: #f5f5f7;
+  }
+
+  .upload-area p {
+    color: #86868b;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  .upload-buttons {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .file-name {
+    margin-top: 12px;
+    color: #30d158;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .upload-area input[type="file"] {
+    display: none;
+  }
+
+  .back-btn {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: #86868b;
+    font-size: 13px;
+    text-decoration: none;
+    font-weight: 500;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.2s;
+  }
+
+  .back-btn:hover { color: #f5f5f7; }
+
+  .content-area { display: none; }
+  .content-area.visible { display: block; }
+
+  .upload-btn {
+    background: #0071e3;
+    border: none;
+    color: white;
+    padding: 10px 24px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-family: inherit;
+  }
+
+  .upload-btn:hover { background: #0077ed; }
+
+  .upload-btn-akt {
+    background: rgba(255, 204, 0, 0.15);
+    border: 1px solid rgba(255, 204, 0, 0.3);
+    color: #ffcc00;
+    padding: 10px 24px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-family: inherit;
+  }
+
+  .upload-btn-akt:hover {
+    background: rgba(255, 204, 0, 0.25);
+  }
+
+  .change-file-btn {
+    display: inline-block;
+    margin-left: 12px;
+    color: #0071e3;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .change-file-btn:hover { text-decoration: underline; }
+
+  .akt-btn {
+    display: inline-block;
+    margin-left: 8px;
+    color: #ffcc00;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .akt-btn:hover { text-decoration: underline; }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+  }
+
+  .summary {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .summary-card {
+    flex: 1;
+    min-width: 160px;
+    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+  }
+
+  .summary-card .label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #86868b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .summary-card .value {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  .summary-card .value.positive { color: #30d158; }
+  .summary-card .value.negative { color: #ff453a; }
+  .summary-card .value.neutral { color: #f5f5f7; }
+
+  .filters {
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+  }
+
+  .filters label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #86868b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 4px;
+  }
+
+  .filters input, .filters select {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #f5f5f7;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+    min-width: 120px;
+  }
+
+  .filters input:focus, .filters select:focus {
+    border-color: #0071e3;
+  }
+
+  .filters input::placeholder {
+    color: #48484a;
+  }
+
+  .filters select option {
+    background: #1c1c1e;
+    color: #f5f5f7;
+  }
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn {
+    background: #0071e3;
+    border: none;
+    color: white;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-family: inherit;
+  }
+
+  .btn:hover { background: #0077ed; }
+  .btn:active { background: #006edb; }
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #f5f5f7;
+  }
+  .btn-secondary:hover { background: rgba(255, 255, 255, 0.12); }
+
+  .table-wrapper {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 14px 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #86868b;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  tbody td {
+    padding: 12px 20px;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #f5f5f7;
+  }
+
+  tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  tbody tr.selected {
+    background: rgba(0, 113, 227, 0.15);
+    border-left: 3px solid #0071e3;
+  }
+
+  tbody tr.selected td:first-child {
+    padding-left: 17px;
+  }
+
+  td.amount {
+    text-align: right;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  td.amount.positive { color: #30d158; }
+  td.amount.negative { color: #ff453a; }
+
+  td.balance {
+    text-align: right;
+    color: #86868b;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+
+  .badge-income { background: rgba(48, 209, 88, 0.15); color: #30d158; }
+  .badge-expense { background: rgba(255, 69, 58, 0.15); color: #ff453a; }
+
+  .footer-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    font-size: 12px;
+    color: #86868b;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .row-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: #0071e3;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+
+  .row-checkbox:hover { opacity: 1; }
+
+  .selection-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .no-results {
+    text-align: center;
+    padding: 60px 20px;
+    color: #48484a;
+    font-size: 15px;
+  }
+
+  tfoot td {
+    padding: 14px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    border-top: 2px solid rgba(255, 255, 255, 0.15);
+    color: #f5f5f7;
+  }
+
+  .section-title {
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 13px;
+    font-weight: 600;
+    color: #f5f5f7;
+  }
+
+  @media (max-width: 768px) {
+    body { padding: 12px; }
+    h1 { font-size: 24px; }
+    .summary { gap: 10px; }
+    .summary-card { min-width: calc(50% - 10px); padding: 14px 16px; }
+    .summary-card .value { font-size: 18px; }
+    .filters { flex-direction: column; align-items: stretch; gap: 8px; padding: 14px 16px; }
+    .filter-group { flex-wrap: wrap; width: 100%; }
+    .filter-group label { min-width: 60px; font-size: 11px; }
+    .filters input, .filters select { flex: 1; min-width: 0; width: 100%; font-size: 16px; }
+    .btn { padding: 10px 16px; font-size: 15px; text-align: center; }
+    .table-wrapper { border-radius: 12px; }
+    thead th, tbody td { padding: 8px 8px; font-size: 12px; }
+    thead th:nth-child(6), tbody td:nth-child(6) { display: none; }
+    .status-badge { font-size: 10px; padding: 1px 6px; }
+    .upload-area { padding: 40px 20px; }
+    .upload-area h2 { font-size: 18px; }
+    .footer-info { flex-direction: column; gap: 8px; align-items: flex-start; }
+    .upload-buttons { flex-direction: column; }
+    #aqContentArea .summary-card:nth-child(1),
+    #aqContentArea .summary-card:nth-child(2) { display: none; }
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 8px; }
+    .summary-card { min-width: 100%; }
+    .summary-card .value { font-size: 16px; }
+    thead th:nth-child(2), tbody td:nth-child(2) { display: none; }
+    thead th, tbody td { padding: 6px 6px; font-size: 11px; }
+    .row-checkbox { width: 22px; height: 22px; }
+    .filters input, .filters select { font-size: 16px; }
+    #aqExtraColWrap { display: none; }
+    #aqDropdownBtn { min-width: 0; width: 100%; }
+    #aqDropdown { left: 0; min-width: 100%; }
+    #aqContentArea .summary-card:nth-child(1),
+    #aqContentArea .summary-card:nth-child(2) { display: none; }
+    #aqContentArea .summary .value { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-btn">&#8592; Мои задачи</a>
+
+<div class="container">
+  <div id="uploadArea" class="upload-area">
+    <div class="icon">&#128196;</div>
+    <h2>Загрузить файл</h2>
+    <p>CSV — банковская выписка / XLS, XLSX — отчёт эквайринга из 1С</p>
+    <input type="file" id="fileInput" accept=".csv">
+    <input type="file" id="aqFileInput" accept=".xls,.xlsx">
+    <div class="upload-buttons">
+      <button class="upload-btn" id="uploadBtn">&#128194; Выбрать CSV</button>
+      <button class="upload-btn-akt" id="aktUploadBtn">&#128202; По Акту Сверки</button>
+    </div>
+    <div id="fileName" class="file-name"></div>
+  </div>
+
+  <div id="contentArea" class="content-area">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap;">
+      <h1 style="margin:0;">Банковская выписка</h1>
+      <span class="change-file-btn" id="changeFileBtn">&#128194; Сменить файл</span>
+    </div>
+    <p class="subtitle" id="fileSubtitle"></p>
+
+    <div class="summary">
+      <div class="summary-card">
+        <div class="label">Всего транзакций</div>
+        <div class="value neutral" id="totalCount">0</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Доходы</div>
+        <div class="value positive" id="totalIncome">0,00 &#8364;</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Расходы</div>
+        <div class="value negative" id="totalExpense">0,00 &#8364;</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Выбрано (сумма)</div>
+        <div class="value neutral" id="totalSelected">0,00 &#8364;</div>
+      </div>
+    </div>
+
+    <div class="filters">
+      <div class="filter-group">
+        <label>Поиск</label>
+        <input type="text" id="searchInput" placeholder="Описание..." style="min-width:140px;">
+      </div>
+      <div class="filter-group">
+        <label>Категория</label>
+        <select id="conceptFilter" style="min-width:160px;">
+          <option value="">Все</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Тип</label>
+        <select id="typeFilter">
+          <option value="all">Все</option>
+          <option value="income">Доходы</option>
+          <option value="expense">Расходы</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>От</label>
+        <input type="date" id="dateFrom">
+      </div>
+      <div class="filter-group">
+        <label>До</label>
+        <input type="date" id="dateTo">
+      </div>
+      <div class="filter-group">
+        <label>Мин</label>
+        <input type="number" id="minAmount" placeholder="0" step="0.01" style="min-width:80px;">
+      </div>
+      <div class="filter-group">
+        <label>Макс</label>
+        <input type="number" id="maxAmount" placeholder="5000" step="0.01" style="min-width:80px;">
+      </div>
+      <button class="btn" id="applyFiltersBtn">Применить</button>
+      <button class="btn btn-secondary" id="resetFiltersBtn">Сбросить</button>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px;">
+              <input type="checkbox" id="selectAll" class="row-checkbox">
+            </th>
+            <th style="width:60px;">Тип</th>
+            <th style="width:100px;">Дата</th>
+            <th>Описание</th>
+            <th style="width:120px;">Сумма</th>
+            <th style="width:120px;">Баланс</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+        </tbody>
+      </table>
+      <div class="footer-info">
+        <span id="rowCount">0 транзакций</span>
+        <div class="selection-actions">
+          <span id="selectedCount">Выбрано: 0</span>
+          <button class="btn btn-secondary" id="clearSelectionBtn" style="padding:4px 12px;font-size:11px;">Снять выделение</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="aqContentArea" class="content-area">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap;">
+      <h1 style="margin:0;">По Акту Сверки</h1>
+      <span class="change-file-btn" id="changeFileBtnAq">&#128194; Сменить файл</span>
+      <span class="akt-btn" id="aktChangeBtn">&#128202; Загрузить другой акт</span>
+    </div>
+    <p class="subtitle" id="aqFileSubtitle"></p>
+
+    <div class="summary">
+      <div class="summary-card" style="border-color:rgba(48,209,88,0.3);">
+        <div class="label">Эквайринг (Reina Victoria)</div>
+        <div class="value positive" id="aqReinaSum">0,00 &#8364;</div>
+        <div style="font-size:11px;color:#86868b;margin-top:4px;" id="aqReinaCount">0 операций</div>
+      </div>
+      <div class="summary-card" style="border-color:rgba(48,209,88,0.3);">
+        <div class="label">Эквайринг (C. José Martínez Ruiz Azorín, 11)</div>
+        <div class="value positive" id="aqAzorinSum">0,00 &#8364;</div>
+        <div style="font-size:11px;color:#86868b;margin-top:4px;" id="aqAzorinCount">0 операций</div>
+      </div>
+      <div class="summary-card" style="border-color:rgba(0,113,227,0.3);">
+        <div class="label">Итого эквайринг</div>
+        <div class="value positive" id="aqTotalSum">0,00 &#8364;</div>
+      </div>
+      <div class="summary-card" style="border-color:rgba(255,204,0,0.3);">
+        <div class="label">Инкассации (DEPOSIT DISPENSER)</div>
+        <div class="value positive" id="aqInkassSum">0,00 &#8364;</div>
+        <div style="font-size:11px;color:#86868b;margin-top:4px;" id="aqInkassCount">0 операций</div>
+      </div>
+    </div>
+
+    <div class="filters" style="margin-bottom:24px;position:relative;z-index:200;flex-wrap:wrap;">
+      <div class="filter-group" style="position:relative;">
+        <label>Фильтр</label>
+        <div id="aqDropdownBtn" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 12px;color:#f5f5f7;font-size:14px;cursor:pointer;min-width:260px;user-select:none;">
+          &#9662; Все строки
+        </div>
+        <div id="aqDropdown" style="display:none;position:absolute;top:100%;left:44px;z-index:300;background:#1c1c1e;border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:8px 0;max-height:320px;overflow-y:auto;min-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+        </div>
+      </div>
+      <div class="filter-group" id="aqExtraColWrap">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;">
+          <input type="checkbox" id="aqExtraCol" class="row-checkbox" style="width:16px;height:16px;">
+          3-я колонка
+        </label>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <div class="section-title">&#128196; Детализация</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:60px;">&#8470;</th>
+            <th>Наименование (колонка 6)</th>
+            <th class="aq-extra-col" style="display:none;">Колонка 3</th>
+            <th style="width:120px;">Сумма (колонка 7)</th>
+          </tr>
+        </thead>
+        <tbody id="aqTableBody">
+        </tbody>
+      </table>
+      <div class="footer-info">
+        <span id="aqRowCount">0 строк</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+function parseCSV(csv) {
+  const lines = csv.trim().split('\n');
+  const headers = lines[0].split(';');
+  const transactions = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(';');
+    if (cols.length < 4) continue;
+
+    const concept = cols[0].trim();
+    const dateStr = cols[1].trim();
+    const amountStr = cols[2].trim().replace('EUR', '').trim();
+    const balanceStr = cols[3].trim().replace('EUR', '').trim();
+
+    const rawAmount = parseFloat(amountStr.replace(',', '.').replace('+', ''));
+    const isExpense = amountStr.startsWith('-');
+    const amount = rawAmount;
+    const balance = parseFloat(balanceStr.replace(',', '.'));
+
+    const [day, month, year] = dateStr.split('/');
+    const date = new Date(+year, +month - 1, +day);
+
+    transactions.push({
+      id: i - 1,
+      concept,
+      date,
+      dateStr,
+      amount,
+      rawAmount: Math.abs(amount),
+      isExpense,
+      balance,
+    });
+  }
+
+  return transactions;
+}
+
+let transactions = [];
+let filtered = [];
+let selected = new Set();
+
+function formatCurrencyTR(val) {
+  return val.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(',', '.') + ' \u20AC';
+}
+
+function formatDate(d) {
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function toDateInput(d) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function render() {
+  const tbody = document.getElementById('tableBody');
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  const conceptFilter = document.getElementById('conceptFilter').value;
+  const typeFilter = document.getElementById('typeFilter').value;
+  const dateFrom = document.getElementById('dateFrom').value;
+  const dateTo = document.getElementById('dateTo').value;
+  const minAmt = parseFloat(document.getElementById('minAmount').value) || 0;
+  const maxAmt = parseFloat(document.getElementById('maxAmount').value) || Infinity;
+
+  filtered = transactions.filter(t => {
+    if (search) {
+      const amtMatch = Math.abs(t.amount).toFixed(2).includes(search.replace(',', '.'));
+      const conceptMatch = t.concept.toLowerCase().includes(search);
+      if (!amtMatch && !conceptMatch) return false;
+    }
+    if (conceptFilter && t.concept !== conceptFilter) return false;
+    if (typeFilter === 'income' && t.isExpense) return false;
+    if (typeFilter === 'expense' && !t.isExpense) return false;
+    if (dateFrom) {
+      const from = new Date(dateFrom + 'T00:00:00');
+      if (t.date < from) return false;
+    }
+    if (dateTo) {
+      const to = new Date(dateTo + 'T23:59:59');
+      if (t.date > to) return false;
+    }
+    const absAmt = Math.abs(t.amount);
+    if (absAmt < minAmt) return false;
+    if (absAmt > maxAmt) return false;
+    return true;
+  });
+
+  let totalIncome = 0, totalExpense = 0;
+  filtered.forEach(t => {
+    if (t.amount > 0) totalIncome += t.amount;
+    else totalExpense += Math.abs(t.amount);
+  });
+
+  document.getElementById('totalCount').textContent = filtered.length;
+  document.getElementById('totalIncome').textContent = formatCurrencyTR(totalIncome);
+  document.getElementById('totalExpense').textContent = formatCurrencyTR(totalExpense);
+
+  let totalSelected = 0;
+  selected.forEach(id => {
+    const t = transactions.find(tx => tx.id === id);
+    if (t) totalSelected += t.amount;
+  });
+  document.getElementById('totalSelected').textContent = formatCurrencyTR(totalSelected);
+  document.getElementById('selectedCount').textContent = '\u0412\u044b\u0431\u0440\u0430\u043d\u043e: ' + selected.size;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="no-results">\u041d\u0435\u0442 \u0442\u0440\u0430\u043d\u0437\u0430\u043a\u0446\u0438\u0439, \u0441\u043e\u043e\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044e\u0449\u0438\u0445 \u0444\u0438\u043b\u044c\u0442\u0440\u0430\u043c</div></td></tr>';
+    document.getElementById('rowCount').textContent = '0 \u0442\u0440\u0430\u043d\u0437\u0430\u043a\u0446\u0438\u0439';
+    return;
+  }
+
+  let html = '';
+  filtered.forEach(t => {
+    const isSelected = selected.has(t.id);
+    const amtClass = t.amount >= 0 ? 'positive' : 'negative';
+    const badgeClass = t.amount >= 0 ? 'badge-income' : 'badge-expense';
+    const badgeText = t.amount >= 0 ? '\u0414\u043e\u0445\u043e\u0434' : '\u0420\u0430\u0441\u0445\u043e\u0434';
+    const amtDisplay = formatCurrencyTR(t.amount);
+    const balanceDisplay = formatCurrencyTR(t.balance);
+
+    html += `<tr class="${isSelected ? 'selected' : ''}">
+      <td><input type="checkbox" class="row-checkbox" data-id="${t.id}" ${isSelected ? 'checked' : ''}></td>
+      <td><span class="status-badge ${badgeClass}">${badgeText}</span></td>
+      <td>${t.dateStr}</td>
+      <td>${t.concept}</td>
+      <td class="amount ${amtClass}">${amtDisplay}</td>
+      <td class="balance">${balanceDisplay}</td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html;
+  document.getElementById('rowCount').textContent = `${filtered.length} \u0442\u0440\u0430\u043d\u0437\u0430\u043a\u0446\u0438\u0439`;
+
+  document.querySelectorAll('.row-checkbox[data-id]').forEach(cb => {
+    cb.addEventListener('change', function() {
+      const id = parseInt(this.dataset.id);
+      if (this.checked) selected.add(id);
+      else selected.delete(id);
+      render();
+      saveCSVState();
+    });
+  });
+}
+
+function loadCSVFromText(csvText, fileName, save) {
+  transactions = parseCSV(csvText);
+  selected.clear();
+
+  if (transactions.length === 0) {
+    if (save) alert('\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0440\u0430\u0441\u043f\u0430\u0440\u0441\u0438\u0442\u044c CSV. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0444\u043e\u0440\u043c\u0430\u0442 \u0444\u0430\u0439\u043b\u0430.');
+    return;
+  }
+
+  document.getElementById('uploadArea').style.display = 'none';
+  document.getElementById('contentArea').classList.add('visible');
+  document.getElementById('aqContentArea').classList.remove('visible');
+
+  document.getElementById('fileSubtitle').textContent = fileName.replace('.csv', '') + ' \u00B7 ' + transactions.length + ' \u0442\u0440\u0430\u043d\u0437\u0430\u043a\u0446\u0438\u0439';
+
+  const minDate = transactions.reduce((min, t) => t.date < min ? t.date : min, transactions[0].date);
+  const maxDate = transactions.reduce((max, t) => t.date > max ? t.date : max, transactions[0].date);
+  document.getElementById('dateFrom').value = toDateInput(minDate);
+  document.getElementById('dateTo').value = toDateInput(maxDate);
+  document.getElementById('minAmount').value = '';
+  document.getElementById('maxAmount').value = '';
+  document.getElementById('searchInput').value = '';
+  document.getElementById('typeFilter').value = 'all';
+  document.getElementById('conceptFilter').value = '';
+
+  const concepts = [...new Set(transactions.map(t => t.concept))].sort();
+  const sel = document.getElementById('conceptFilter');
+  sel.innerHTML = '<option value="">\u0412\u0441\u0435</option>' + concepts.map(c => '<option>' + c.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</option>').join('');
+
+  render();
+  if (save) saveCSVState(csvText, fileName);
+}
+
+function loadCSV(file, save) {
+  if (save === undefined) save = true;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    loadCSVFromText(e.target.result, file.name, save);
+  };
+  reader.onerror = function() { alert('\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u0438 \u0447\u0442\u0435\u043d\u0438\u0438 \u0444\u0430\u0439\u043b\u0430'); };
+  reader.readAsText(file);
+}
+
+let aqDataRows = [];
+let aqChecked = new Set();
+
+function buildAqDropdown() {
+  aqUniqueLocations = [...new Set(aqDataRows.map(r => r.location))].sort();
+  aqChecked = new Set(aqUniqueLocations);
+  const dd = document.getElementById('aqDropdown');
+  let html = '<div style="padding:4px 12px 8px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:4px;">' +
+    '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#86868b;padding:2px 0;">' +
+    '<input type="checkbox" id="aqSelectAll" class="row-checkbox" checked style="width:16px;height:16px;"> Выбрать все</label></div>';
+  aqUniqueLocations.forEach(loc => {
+    html += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 12px;font-size:13px;color:#f5f5f7;transition:background 0.15s;" onmouseenter="this.style.background=\'rgba(255,255,255,0.08)\'" onmouseleave="this.style.background=\'none\'">' +
+      '<input type="checkbox" class="aq-check row-checkbox" data-loc="' + loc.replace(/"/g, '&quot;') + '" checked style="width:16px;height:16px;"> ' +
+      '<span style="flex:1;">' + loc + '</span></label>';
+  });
+  dd.innerHTML = html;
+
+  document.getElementById('aqSelectAll').addEventListener('change', function() {
+    const boxes = dd.querySelectorAll('.aq-check');
+    if (this.checked) {
+      aqChecked = new Set(aqUniqueLocations);
+      boxes.forEach(b => b.checked = true);
+    } else {
+      aqChecked.clear();
+      boxes.forEach(b => b.checked = false);
+    }
+    renderAqTable();
+  });
+
+  dd.querySelectorAll('.aq-check').forEach(cb => {
+    cb.addEventListener('change', function() {
+      if (this.checked) aqChecked.add(this.dataset.loc);
+      else aqChecked.delete(this.dataset.loc);
+      document.getElementById('aqSelectAll').checked = aqChecked.size === aqUniqueLocations.length;
+      renderAqTable();
+    });
+  });
+}
+
+function updateAqDropdownBtn() {
+  const btn = document.getElementById('aqDropdownBtn');
+  if (aqChecked.size === aqUniqueLocations.length) {
+    btn.innerHTML = '&#9662; Все строки';
+  } else if (aqChecked.size === 0) {
+    btn.innerHTML = '&#9662; Ничего не выбрано';
+  } else {
+    btn.innerHTML = '&#9662; Выбрано: ' + aqChecked.size + ' из ' + aqUniqueLocations.length;
+  }
+}
+
+let aqUniqueLocations = [];
+
+function renderAqTable() {
+  let rows = aqDataRows;
+  if (aqChecked.size < aqUniqueLocations.length) {
+    rows = aqDataRows.filter(r => aqChecked.has(r.location));
+  }
+
+  const reina = rows.filter(r => r.location.toLowerCase().includes('reina victoria'));
+  const azorin = rows.filter(r => r.location.toLowerCase().includes('jose martinez') || r.location.toLowerCase().includes('azorin') || r.location.toLowerCase().includes('c. jos'));
+  const deposit = rows.filter(r => r.location.toLowerCase().includes('deposit dispenser'));
+
+  const sumReina = reina.reduce((s, r) => s + r.amount, 0);
+  const sumAzorin = azorin.reduce((s, r) => s + r.amount, 0);
+  const sumDeposit = deposit.reduce((s, r) => s + r.amount, 0);
+
+  document.getElementById('aqReinaSum').textContent = formatCurrencyTR(sumReina);
+  document.getElementById('aqReinaCount').textContent = reina.length + ' \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0439';
+  document.getElementById('aqAzorinSum').textContent = formatCurrencyTR(sumAzorin);
+  document.getElementById('aqAzorinCount').textContent = azorin.length + ' \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0439';
+  document.getElementById('aqTotalSum').textContent = formatCurrencyTR(sumReina + sumAzorin);
+  document.getElementById('aqInkassSum').textContent = formatCurrencyTR(sumDeposit);
+  document.getElementById('aqInkassCount').textContent = deposit.length + ' \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0439';
+
+  const showExtra = document.getElementById('aqExtraCol').checked;
+  document.querySelectorAll('.aq-extra-col').forEach(el => el.style.display = showExtra ? '' : 'none');
+
+  const tbody = document.getElementById('aqTableBody');
+  let html = '';
+  rows.forEach(r => {
+    const isTarget = r.location.toLowerCase().includes('reina victoria') ||
+                     r.location.toLowerCase().includes('jose martinez') ||
+                     r.location.toLowerCase().includes('azorin') ||
+                     r.location.toLowerCase().includes('c. jos') ||
+                     r.location.toLowerCase().includes('deposit dispenser');
+    const cls = isTarget ? ' class="selected"' : '';
+    const amtStr = r.amount ? formatCurrencyTR(r.amount) : '';
+    html += `<tr${cls}>
+      <td>${r.row}</td>
+      <td>${r.location}</td>
+      <td class="aq-extra-col" style="display:${showExtra ? '' : 'none'};">${r.col1}</td>
+      <td class="amount positive">${amtStr}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+  document.getElementById('aqRowCount').textContent = rows.length + ' / ' + aqDataRows.length + ' \u0441\u0442\u0440\u043e\u043a';
+
+  updateAqDropdownBtn();
+}
+
+function loadExcelFromArrayBuffer(arrayBuffer, fileName, save) {
+  if (save === undefined) save = true;
+  try {
+    const data = new Uint8Array(arrayBuffer);
+    const workbook = XLSX.read(data, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+    const dataRows = [];
+
+    for (let i = 0; i < json.length; i++) {
+      const row = json[i];
+      const cells = row.map(c => String(c || '').trim());
+      const rowText = cells.join(' ').toLowerCase();
+      if (!rowText.includes('deposit') && !rowText.includes('reina') && !rowText.includes('azorin') && !rowText.includes('jose martinez') && !rowText.includes('c. jos')) continue;
+      let nameCol = -1, amountCol = -1;
+      for (let c = 0; c < cells.length; c++) {
+        const v = cells[c].toLowerCase();
+        if (v.includes('deposit dispenser') || v.includes('reina victoria') || v.includes('azorin') || v.includes('jose martinez') || v.includes('c. jos')) {
+          nameCol = c;
+        }
+      }
+      if (nameCol === -1) continue;
+      for (let c = nameCol + 1; c < cells.length; c++) {
+        const v = cells[c].replace(/\s/g, '').replace(',', '.');
+        if (v && !isNaN(parseFloat(v))) { amountCol = c; break; }
+      }
+      if (amountCol === -1) continue;
+      const amount = parseFloat(cells[amountCol].replace(/\s/g, '').replace(',', '.')) || 0;
+      dataRows.push({ row: i + 1, location: cells[nameCol], amount: amount, col1: cells[2] || '' });
+    }
+
+    if (dataRows.length === 0) {
+      const debug = json.slice(0, 20).map((r, i) => 'Row ' + i + ': ' + r.map(c => String(c || '').trim()).join(' | ')).join('\n');
+      alert('\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445. \u0421\u043e\u0434\u0435\u0440\u0436\u0438\u0442\u0435 Ctrl+J \u0438 \u043f\u043e\u0441\u043c\u043e\u0442\u0440\u0438\u0442\u0435 Console.\n\nFirst rows:\n' + debug);
+      return;
+    }
+
+    aqDataRows = dataRows;
+    aqUniqueLocations = [...new Set(dataRows.map(r => r.location))].sort();
+    aqChecked = new Set(aqUniqueLocations);
+
+    document.getElementById('uploadArea').style.display = 'none';
+    document.getElementById('contentArea').classList.remove('visible');
+    document.getElementById('aqContentArea').classList.add('visible');
+
+    const fname = fileName.replace(/\.(xls|xlsx)$/i, '');
+    document.getElementById('aqFileSubtitle').textContent = fname + ' \u00B7 ' + dataRows.length + ' \u0441\u0442\u0440\u043e\u043a';
+
+    buildAqDropdown();
+    renderAqTable();
+
+    console.log('Excel rows (first 15):', json.slice(0, 15).map((r, i) => ({ row: i, cells: r.slice(0, 10).map(c => String(c || '').trim()) })));
+    console.log('Parsed dataRows:', dataRows.slice(0, 10));
+
+    if (save) saveExcelState(arrayBuffer, fileName);
+
+  } catch (err) {
+    alert('\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u0438 \u0440\u0430\u0437\u0431\u043e\u0440\u0435 \u0444\u0430\u0439\u043b\u0430: ' + err.message);
+  }
+}
+
+function loadExcel(file, save) {
+  if (save === undefined) save = true;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    loadExcelFromArrayBuffer(e.target.result, file.name, save);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function handleFile(file) {
+  const name = file.name.toLowerCase();
+  document.getElementById('fileName').textContent = '\u2713 ' + file.name;
+
+  if (name.endsWith('.csv')) {
+    loadCSV(file);
+  } else if (name.endsWith('.xls') || name.endsWith('.xlsx')) {
+    loadExcel(file);
+  } else {
+    alert('\u041f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u0435 CSV (\u0432\u044b\u043f\u0438\u0441\u043a\u0430) \u0438\u043b\u0438 XLS/XLSX (\u044d\u043a\u0432\u0430\u0439\u0440\u0438\u043d\u0433)');
+  }
+}
+
+function handleAqFile(file) {
+  const name = file.name.toLowerCase();
+  document.getElementById('fileName').textContent = '\u2713 ' + file.name;
+
+  if (name.endsWith('.xls') || name.endsWith('.xlsx')) {
+    loadExcel(file);
+  } else {
+    alert('\u041f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0432\u044b\u0431\u0435\u0440\u0438\u0442\u0435 XLS \u0438\u043b\u0438 XLSX \u0444\u0430\u0439\u043b (\u0430\u043a\u0442 \u0441\u0432\u0435\u0440\u043a\u0438 \u0438\u0437 1\u0421)');
+  }
+}
+
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function base64ToArrayBuffer(base64) {
+  const binaryStr = atob(base64);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+function saveCSVState(csvText, fileName) {
+  const state = {
+    fileType: 'csv',
+    fileName: fileName,
+    csvText: csvText,
+    filters: getFilterState(),
+    selectedIds: [...selected]
+  };
+  try { localStorage.setItem('bankAppState', JSON.stringify(state)); } catch(e) {}
+}
+
+function saveExcelState(arrayBuffer, fileName) {
+  const state = {
+    fileType: 'xls',
+    fileName: fileName,
+    xlsBase64: arrayBufferToBase64(arrayBuffer)
+  };
+  try { localStorage.setItem('bankAppState', JSON.stringify(state)); } catch(e) {}
+}
+
+function getFilterState() {
+  return {
+    search: document.getElementById('searchInput').value,
+    concept: document.getElementById('conceptFilter').value,
+    type: document.getElementById('typeFilter').value,
+    dateFrom: document.getElementById('dateFrom').value,
+    dateTo: document.getElementById('dateTo').value,
+    minAmount: document.getElementById('minAmount').value,
+    maxAmount: document.getElementById('maxAmount').value
+  };
+}
+
+function restoreFilters(filters) {
+  if (!filters) return;
+  document.getElementById('searchInput').value = filters.search || '';
+  document.getElementById('typeFilter').value = filters.type || 'all';
+  document.getElementById('dateFrom').value = filters.dateFrom || '';
+  document.getElementById('dateTo').value = filters.dateTo || '';
+  document.getElementById('minAmount').value = filters.minAmount || '';
+  document.getElementById('maxAmount').value = filters.maxAmount || '';
+}
+
+function restoreState() {
+  let saved;
+  try { saved = localStorage.getItem('bankAppState'); } catch(e) { return; }
+  if (!saved) return;
+
+  try {
+    const state = JSON.parse(saved);
+
+    if (state.fileType === 'csv' && state.csvText) {
+      transactions = parseCSV(state.csvText);
+      if (transactions.length === 0) return;
+
+      selected.clear();
+      if (state.selectedIds) state.selectedIds.forEach(id => selected.add(id));
+
+      document.getElementById('uploadArea').style.display = 'none';
+      document.getElementById('contentArea').classList.add('visible');
+      document.getElementById('aqContentArea').classList.remove('visible');
+      document.getElementById('fileSubtitle').textContent = (state.fileName || '').replace('.csv', '') + ' \u00B7 ' + transactions.length + ' \u0442\u0440\u0430\u043d\u0437\u0430\u043a\u0446\u0438\u0439';
+
+      const minDate = transactions.reduce((min, t) => t.date < min ? t.date : min, transactions[0].date);
+      const maxDate = transactions.reduce((max, t) => t.date > max ? t.date : max, transactions[0].date);
+
+      const filters = state.filters || {};
+      document.getElementById('dateFrom').value = filters.dateFrom || toDateInput(minDate);
+      document.getElementById('dateTo').value = filters.dateTo || toDateInput(maxDate);
+
+      const concepts = [...new Set(transactions.map(t => t.concept))].sort();
+      const sel = document.getElementById('conceptFilter');
+      sel.innerHTML = '<option value="">\u0412\u0441\u0435</option>' + concepts.map(c => '<option>' + c.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</option>').join('');
+
+      if (filters.concept) document.getElementById('conceptFilter').value = filters.concept;
+      restoreFilters(filters);
+
+      render();
+
+    } else if (state.fileType === 'xls' && state.xlsBase64) {
+      const buffer = base64ToArrayBuffer(state.xlsBase64);
+      loadExcelFromArrayBuffer(buffer, state.fileName || 'report.xls', false);
+    }
+  } catch (e) {
+    console.error('Restore failed:', e);
+    try { localStorage.removeItem('bankAppState'); } catch(e2) {}
+  }
+}
+
+function clearSavedState() {
+  try { localStorage.removeItem('bankAppState'); } catch(e) {}
+}
+
+function init() {
+  const fileInput = document.getElementById('fileInput');
+  const aqFileInput = document.getElementById('aqFileInput');
+  const uploadArea = document.getElementById('uploadArea');
+
+  document.getElementById('uploadBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    fileInput.click();
+  });
+
+  document.getElementById('aktUploadBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    aqFileInput.click();
+  });
+
+  fileInput.addEventListener('change', function() {
+    if (this.files && this.files[0]) handleFile(this.files[0]);
+  });
+
+  aqFileInput.addEventListener('change', function() {
+    if (this.files && this.files[0]) handleAqFile(this.files[0]);
+  });
+
+  uploadArea.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('dragover'); });
+  uploadArea.addEventListener('dragleave', function(e) { e.preventDefault(); this.classList.remove('dragover'); });
+  uploadArea.addEventListener('drop', function(e) {
+    e.preventDefault();
+    this.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  function resetToUpload() {
+    selected.clear();
+    transactions = [];
+    filtered = [];
+    aqDataRows = [];
+    clearSavedState();
+    document.getElementById('contentArea').classList.remove('visible');
+    aqDataRows = [];
+    aqChecked.clear();
+    aqUniqueLocations = [];
+    document.getElementById('aqContentArea').classList.remove('visible');
+    document.getElementById('uploadArea').style.display = 'flex';
+    document.getElementById('fileName').textContent = '';
+    document.getElementById('fileInput').value = '';
+    document.getElementById('aqFileInput').value = '';
+    document.getElementById('aqDropdown').style.display = 'none';
+  }
+
+  document.getElementById('changeFileBtn').addEventListener('click', resetToUpload);
+  document.getElementById('changeFileBtnAq').addEventListener('click', resetToUpload);
+
+  document.getElementById('aktChangeBtn').addEventListener('click', function() {
+    aqFileInput.click();
+  });
+
+  document.getElementById('aqDropdownBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    const dd = document.getElementById('aqDropdown');
+    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  });
+
+  document.addEventListener('click', function(e) {
+    const dd = document.getElementById('aqDropdown');
+    if (!dd) return;
+    if (!dd.contains(e.target) && e.target.id !== 'aqDropdownBtn') {
+      dd.style.display = 'none';
+    }
+  });
+
+  document.getElementById('aqExtraCol').addEventListener('change', function() {
+    renderAqTable();
+  });
+
+  document.getElementById('applyFiltersBtn').addEventListener('click', function() {
+    render();
+    if (transactions.length > 0) saveCSVState();
+  });
+
+  document.getElementById('resetFiltersBtn').addEventListener('click', function() {
+    if (transactions.length === 0) return;
+    const minDate = transactions.reduce((min, t) => t.date < min ? t.date : min, transactions[0].date);
+    const maxDate = transactions.reduce((max, t) => t.date > max ? t.date : max, transactions[0].date);
+    document.getElementById('searchInput').value = '';
+    document.getElementById('typeFilter').value = 'all';
+    document.getElementById('conceptFilter').value = '';
+    document.getElementById('dateFrom').value = toDateInput(minDate);
+    document.getElementById('dateTo').value = toDateInput(maxDate);
+    document.getElementById('minAmount').value = '';
+    document.getElementById('maxAmount').value = '';
+    render();
+    saveCSVState();
+  });
+
+  document.getElementById('selectAll').addEventListener('change', function() {
+    if (this.checked) { filtered.forEach(t => selected.add(t.id)); }
+    else { filtered.forEach(t => selected.delete(t.id)); }
+    render();
+    saveCSVState();
+  });
+
+  document.getElementById('clearSelectionBtn').addEventListener('click', function() {
+    selected.clear();
+    render();
+    saveCSVState();
+  });
+
+  document.getElementById('searchInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { render(); saveCSVState(); }
+  });
+
+  restoreState();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
