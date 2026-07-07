@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF → Изображения</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --bg-0:#000000;
+    --bg-1:#0b0b0d;
+    --glass-fill: rgba(255,255,255,0.055);
+    --glass-fill-strong: rgba(255,255,255,0.09);
+    --glass-border: rgba(255,255,255,0.14);
+    --glass-border-soft: rgba(255,255,255,0.08);
+    --text-0:#f5f5f7;
+    --text-1: rgba(245,245,247,0.62);
+    --text-2: rgba(245,245,247,0.38);
+    --accent:#0a84ff;
+    --accent-soft: rgba(10,132,255,0.16);
+    --red:#ff453a;
+    --yellow:#ffd60a;
+    --green:#32d74b;
+    --radius-xl: 22px;
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+  html,body{
+    height:100%;
+    margin:0;
+    background: var(--bg-0);
+    color: var(--text-0);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow-x:hidden;
+  }
+
+  /* Ambient background: soft moving color blobs, like macOS wallpaper light bleeding through glass */
+  .backdrop{
+    position:fixed; inset:0; z-index:-1; overflow:hidden;
+  }
+  .blob{
+    position:absolute;
+    width:60vmax; height:60vmax;
+    border-radius:50%;
+    filter: blur(90px);
+    opacity:0.35;
+    will-change: transform;
+  }
+  .blob.b1{ background: radial-gradient(circle at 30% 30%, #2b63ff, transparent 70%); top:-20%; left:-15%; animation: float1 26s ease-in-out infinite; }
+  .blob.b2{ background: radial-gradient(circle at 60% 40%, #7c3aed, transparent 70%); bottom:-25%; right:-10%; animation: float2 32s ease-in-out infinite; }
+  .blob.b3{ background: radial-gradient(circle at 50% 50%, #ff6482, transparent 70%); bottom:10%; left:20%; opacity:0.18; animation: float3 40s ease-in-out infinite; }
+
+  @keyframes float1{
+    0%,100%{ transform: translate(0,0) scale(1); }
+    50%{ transform: translate(6%, 8%) scale(1.08); }
+  }
+  @keyframes float2{
+    0%,100%{ transform: translate(0,0) scale(1); }
+    50%{ transform: translate(-8%, -4%) scale(1.05); }
+  }
+  @keyframes float3{
+    0%,100%{ transform: translate(0,0) scale(1); }
+    50%{ transform: translate(4%, -6%) scale(1.1); }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .blob{ animation: none !important; }
+  }
+
+  .page{
+    min-height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 56px 20px 100px;
+  }
+
+  .eyebrow{
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color: var(--text-2);
+    font-weight:600;
+    margin-bottom:10px;
+  }
+
+  h1{
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight:700;
+    letter-spacing:-0.02em;
+    margin:0 0 8px;
+    background: linear-gradient(180deg, #ffffff 0%, #c9c9d1 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+    text-align:center;
+  }
+
+  .sub{
+    color:var(--text-1);
+    font-size:15px;
+    text-align:center;
+    max-width:440px;
+    margin: 0 0 36px;
+    line-height:1.5;
+  }
+
+  /* macOS-style window */
+  .window{
+    width:100%;
+    max-width:620px;
+    background: var(--glass-fill);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08);
+    overflow:hidden;
+    margin-bottom: 22px;
+  }
+
+  .titlebar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--glass-border-soft);
+    background: rgba(255,255,255,0.02);
+  }
+  .dot{ width:12px; height:12px; border-radius:50%; }
+  .dot.red{ background:var(--red); }
+  .dot.yellow{ background:var(--yellow); }
+  .dot.green{ background:var(--green); }
+  .titlebar .name{
+    flex:1;
+    text-align:center;
+    font-size:13px;
+    color: var(--text-1);
+    font-weight:600;
+    margin-right: 54px; /* balance the traffic lights */
+  }
+
+  .window-body{ padding: 28px; }
+
+  /* Drop zone */
+  .dropzone{
+    border: 1.5px dashed var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 46px 24px;
+    text-align:center;
+    cursor:pointer;
+    transition: border-color .2s ease, background .2s ease, transform .15s ease;
+    background: rgba(255,255,255,0.02);
+  }
+  .dropzone:hover{ background: rgba(255,255,255,0.045); border-color: rgba(255,255,255,0.25); }
+  .dropzone.drag{ border-color: var(--accent); background: var(--accent-soft); transform: scale(1.01); }
+
+  .dropzone .icon{
+    width:52px; height:52px;
+    margin: 0 auto 16px;
+    border-radius: 14px;
+    background: linear-gradient(160deg, rgba(10,132,255,0.9), rgba(124,58,237,0.9));
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 8px 24px rgba(10,132,255,0.35);
+  }
+  .dropzone .icon svg{ width:26px; height:26px; }
+
+  .dropzone .title{ font-size:16px; font-weight:600; margin-bottom:4px; }
+  .dropzone .hint{ font-size:13px; color: var(--text-2); }
+
+  input[type=file]{ display:none; }
+
+  .filebar{
+    display:flex; align-items:center; gap:12px;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.04);
+    border:1px solid var(--glass-border-soft);
+    border-radius: var(--radius-md);
+    margin-top: 18px;
+  }
+  .filebar .ficon{
+    width:34px; height:34px; border-radius:8px;
+    background: rgba(255,69,58,0.18);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .filebar .ficon svg{ width:18px; height:18px; }
+  .filebar .finfo{ flex:1; min-width:0; }
+  .filebar .fname{ font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .filebar .fmeta{ font-size:12px; color: var(--text-2); margin-top:2px; }
+  .filebar .fclear{
+    width:26px; height:26px; border-radius:50%;
+    background: rgba(255,255,255,0.08);
+    border:none; color: var(--text-1);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:14px; flex-shrink:0;
+  }
+  .filebar .fclear:hover{ background: rgba(255,255,255,0.16); }
+
+  /* Settings */
+  .settings{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .field{ display:flex; flex-direction:column; gap:8px; }
+  .field label{ font-size:12px; color: var(--text-2); font-weight:600; letter-spacing:0.02em; }
+
+  .segmented{
+    display:flex;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--glass-border-soft);
+    border-radius: 10px;
+    padding: 3px;
+    gap:3px;
+  }
+  .segmented button{
+    flex:1;
+    border:none;
+    background:transparent;
+    color: var(--text-1);
+    font-size:13px;
+    font-weight:600;
+    padding: 7px 0;
+    border-radius: 7px;
+    cursor:pointer;
+    transition: background .15s ease, color .15s ease;
+  }
+  .segmented button.active{
+    background: var(--accent);
+    color:#fff;
+  }
+
+  input[type=range]{
+    -webkit-appearance:none;
+    width:100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.14);
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:16px; height:16px;
+    border-radius:50%;
+    background:#fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    cursor:pointer;
+    margin-top:-6px;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:4px; border-radius:2px;
+  }
+
+  .range-row{ display:flex; align-items:center; gap:10px; }
+  .range-row .val{ font-size:12.5px; color: var(--text-1); min-width:34px; text-align:right; font-variant-numeric: tabular-nums; }
+
+  .cta{
+    width:100%;
+    margin-top: 22px;
+    padding: 13px 0;
+    border-radius: 12px;
+    border:none;
+    background: linear-gradient(180deg, #1e90ff, var(--accent));
+    color:#fff;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow: 0 8px 20px rgba(10,132,255,0.35), inset 0 1px 0 rgba(255,255,255,0.25);
+    transition: transform .12s ease, filter .12s ease, opacity .12s ease;
+  }
+  .cta:hover:not(:disabled){ filter: brightness(1.08); }
+  .cta:active:not(:disabled){ transform: scale(0.985); }
+  .cta:disabled{ opacity:0.35; cursor:not-allowed; box-shadow:none; }
+
+  .progress-wrap{
+    margin-top: 16px;
+    display:none;
+  }
+  .progress-wrap.show{ display:block; }
+  .progress-track{
+    height:6px;
+    border-radius:3px;
+    background: rgba(255,255,255,0.08);
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    width:0%;
+    background: linear-gradient(90deg, var(--accent), #7c3aed);
+    border-radius:3px;
+    transition: width .2s ease;
+  }
+  .progress-label{
+    font-size:12px; color: var(--text-2); margin-top:8px; text-align:center;
+  }
+
+  /* Results */
+  .results{
+    width:100%;
+    max-width:900px;
+    display:none;
+  }
+  .results.show{ display:block; }
+
+  .results-head{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:16px;
+    padding: 0 4px;
+  }
+  .results-head h2{
+    font-size:18px; font-weight:700; margin:0; letter-spacing:-0.01em;
+  }
+  .download-all{
+    background: var(--glass-fill-strong);
+    border: 1px solid var(--glass-border);
+    color: var(--text-0);
+    font-size:13px;
+    font-weight:600;
+    padding: 9px 16px;
+    border-radius: 10px;
+    cursor:pointer;
+    backdrop-filter: blur(20px);
+    display:flex; align-items:center; gap:6px;
+  }
+  .download-all:hover{ background: rgba(255,255,255,0.14); }
+
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+  }
+
+  .card{
+    background: var(--glass-fill);
+    border: 1px solid var(--glass-border-soft);
+    border-radius: var(--radius-md);
+    overflow:hidden;
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    transition: transform .15s ease, border-color .15s ease;
+    cursor:pointer;
+  }
+  .card:hover{ transform: translateY(-3px); border-color: rgba(255,255,255,0.22); }
+  .card img{
+    width:100%;
+    aspect-ratio: 3/4;
+    object-fit:cover;
+    display:block;
+    background:#151517;
+  }
+  .card .card-foot{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 8px 10px;
+    font-size:12px;
+    color: var(--text-1);
+  }
+  .card .card-foot .dl{
+    width:22px; height:22px;
+    border-radius:50%;
+    background: rgba(255,255,255,0.08);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .card .card-foot svg{ width:11px; height:11px; }
+
+  footer{
+    margin-top: 44px;
+    color: var(--text-2);
+    font-size:12px;
+    text-align:center;
+  }
+
+  /* Lightbox viewer */
+  .lightbox{
+    position:fixed; inset:0;
+    z-index:1000;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding: 24px;
+    background: rgba(0,0,0,0.72);
+    backdrop-filter: blur(30px) saturate(140%);
+    -webkit-backdrop-filter: blur(30px) saturate(140%);
+    animation: fadeIn .18s ease;
+  }
+  .lightbox.show{ display:flex; }
+
+  @keyframes fadeIn{ from{ opacity:0; } to{ opacity:1; } }
+
+  .lightbox-stage{
+    position:relative;
+    max-width: min(920px, 92vw);
+    max-height: 88vh;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  .lightbox-topbar{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+
+  .lightbox-title{
+    font-size:13px;
+    font-weight:600;
+    color: var(--text-1);
+    background: var(--glass-fill-strong);
+    border: 1px solid var(--glass-border);
+    padding: 7px 14px;
+    border-radius: 999px;
+    backdrop-filter: blur(20px);
+  }
+
+  .lightbox-actions{ display:flex; gap:8px; }
+
+  .lb-btn{
+    width:36px; height:36px;
+    border-radius:50%;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-fill-strong);
+    color: var(--text-0);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    backdrop-filter: blur(20px);
+    transition: background .15s ease, transform .12s ease;
+  }
+  .lb-btn:hover{ background: rgba(255,255,255,0.18); }
+  .lb-btn:active{ transform: scale(0.94); }
+  .lb-btn svg{ width:16px; height:16px; }
+
+  .lb-btn.accent{
+    background: linear-gradient(180deg, #1e90ff, var(--accent));
+    border-color: transparent;
+  }
+  .lb-btn.accent:hover{ filter: brightness(1.1); background: linear-gradient(180deg, #1e90ff, var(--accent)); }
+
+  .lightbox-imgwrap{
+    position:relative;
+    width:100%;
+    flex:1;
+    min-height:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius: var(--radius-lg);
+    overflow:hidden;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--glass-border-soft);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+  }
+
+  .lightbox-imgwrap img{
+    max-width:100%;
+    max-height:88vh;
+    object-fit:contain;
+    display:block;
+  }
+
+  .lb-nav{
+    position:absolute;
+    top:50%; transform: translateY(-50%);
+    width:44px; height:44px;
+    border-radius:50%;
+    border: 1px solid var(--glass-border);
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(16px);
+    color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    transition: background .15s ease;
+  }
+  .lb-nav:hover{ background: rgba(0,0,0,0.6); }
+  .lb-nav.prev{ left:14px; }
+  .lb-nav.next{ right:14px; }
+  .lb-nav svg{ width:18px; height:18px; }
+  .lb-nav:disabled{ opacity:0.25; cursor:default; }
+
+  .lightbox-caption{
+    margin-top:14px;
+    font-size:12.5px;
+    color: var(--text-2);
+    text-align:center;
+  }
+
+  @media (max-width:600px){
+    .lb-nav{ width:38px; height:38px; }
+    .lb-nav.prev{ left:4px; }
+    .lb-nav.next{ right:4px; }
+  }
+
+  .home-link{
+    position:fixed;
+    top:18px; left:18px;
+    z-index:20;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:8px 14px;
+    font-size:13px;
+    font-weight:600;
+    color: var(--text-1);
+    background: var(--glass-fill);
+    border:1px solid var(--glass-border);
+    border-radius:999px;
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    text-decoration:none;
+    cursor:pointer;
+    transition: background .15s ease, color .15s ease, transform .12s ease;
+  }
+  .home-link:hover{ background: var(--glass-fill-strong); color: var(--text-0); transform: translateY(-1px); }
+  .home-link:active{ transform: translateY(0); }
+
+  @media (max-width:480px){
+    .settings{ grid-template-columns: 1fr; }
+    .window-body{ padding:20px; }
+  }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="home-link">⬅ На главную</a>
+
+<div class="backdrop">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+</div>
+
+<div class="page">
+  <div class="eyebrow">Локальный конвертер</div>
+  <h1>PDF → Изображения</h1>
+  <p class="sub">Перетащите PDF или выберите файл — каждая страница станет отдельным изображением. Всё происходит прямо в браузере, файлы никуда не отправляются.</p>
+
+  <div class="window">
+    <div class="titlebar">
+      <div class="dot red"></div>
+      <div class="dot yellow"></div>
+      <div class="dot green"></div>
+      <div class="name">Конвертер</div>
+    </div>
+    <div class="window-body">
+
+      <div class="dropzone" id="dropzone">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="title">Перетащите PDF сюда</div>
+        <div class="hint">или нажмите, чтобы выбрать файл</div>
+        <input type="file" id="fileInput" accept="application/pdf">
+      </div>
+
+      <div class="filebar" id="filebar" style="display:none;">
+        <div class="ficon">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z" stroke="#ff453a" stroke-width="1.6"/><path d="M14 2v6h6" stroke="#ff453a" stroke-width="1.6"/></svg>
+        </div>
+        <div class="finfo">
+          <div class="fname" id="fname">—</div>
+          <div class="fmeta" id="fmeta">—</div>
+        </div>
+        <button class="fclear" id="fclear">✕</button>
+      </div>
+
+      <div class="settings">
+        <div class="field">
+          <label>Формат</label>
+          <div class="segmented" id="formatSeg">
+            <button class="active" data-val="png">PNG</button>
+            <button data-val="jpeg">JPEG</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Разрешение</label>
+          <div class="segmented" id="scaleSeg">
+            <button data-val="1">1×</button>
+            <button class="active" data-val="2">2×</button>
+            <button data-val="3">3×</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field" id="qualityField" style="display:none; margin-top:14px;">
+        <label>Качество JPEG</label>
+        <div class="range-row">
+          <input type="range" id="quality" min="10" max="100" value="90">
+          <div class="val" id="qualityVal">90%</div>
+        </div>
+      </div>
+
+      <button class="cta" id="convertBtn" disabled>Конвертировать</button>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-label" id="progressLabel">Обработка…</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="results-head">
+      <h2 id="resultsTitle">Готово</h2>
+      <button class="download-all" id="downloadAll">
+        <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Скачать всё (.zip)
+      </button>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <footer>Работает локально в браузере · на базе pdf.js</footer>
+</div>
+
+<div class="lightbox" id="lightbox">
+  <div class="lightbox-stage">
+    <div class="lightbox-topbar">
+      <div class="lightbox-title" id="lbTitle">Стр. 1</div>
+      <div class="lightbox-actions">
+        <button class="lb-btn accent" id="lbDownload" title="Скачать">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="lb-btn" id="lbClose" title="Закрыть">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="lightbox-imgwrap">
+      <button class="lb-nav prev" id="lbPrev" title="Предыдущая">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <img id="lbImg" src="" alt="">
+      <button class="lb-nav next" id="lbNext" title="Следующая">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <div class="lightbox-caption" id="lbCaption">Стрелки ← → для навигации · Esc для выхода</div>
+  </div>
+</div>
+
+<script type="module">
+import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.worker.min.mjs';
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const filebar = document.getElementById('filebar');
+const fname = document.getElementById('fname');
+const fmeta = document.getElementById('fmeta');
+const fclear = document.getElementById('fclear');
+const convertBtn = document.getElementById('convertBtn');
+const formatSeg = document.getElementById('formatSeg');
+const scaleSeg = document.getElementById('scaleSeg');
+const qualityField = document.getElementById('qualityField');
+const quality = document.getElementById('quality');
+const qualityVal = document.getElementById('qualityVal');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
+const results = document.getElementById('results');
+const resultsTitle = document.getElementById('resultsTitle');
+const grid = document.getElementById('grid');
+const downloadAll = document.getElementById('downloadAll');
+
+let currentFile = null;
+let currentFormat = 'png';
+let currentScale = 2;
+let images = []; // {blob, url, name}
+
+function setActive(seg, btn){
+  seg.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+formatSeg.addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  setActive(formatSeg, btn);
+  currentFormat = btn.dataset.val;
+  qualityField.style.display = currentFormat === 'jpeg' ? 'flex' : 'none';
+  qualityField.style.flexDirection = 'column';
+});
+
+scaleSeg.addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  setActive(scaleSeg, btn);
+  currentScale = parseFloat(btn.dataset.val);
+});
+
+quality.addEventListener('input', () => { qualityVal.textContent = quality.value + '%'; });
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+fileInput.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if(f) handleFile(f);
+});
+
+fclear.addEventListener('click', e => {
+  e.stopPropagation();
+  currentFile = null;
+  fileInput.value = '';
+  filebar.style.display = 'none';
+  dropzone.style.display = 'block';
+  convertBtn.disabled = true;
+  results.classList.remove('show');
+});
+
+function humanSize(bytes){
+  if(bytes < 1024) return bytes + ' Б';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(0) + ' КБ';
+  return (bytes/1024/1024).toFixed(1) + ' МБ';
+}
+
+function handleFile(f){
+  if(f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')){
+    alert('Пожалуйста, выберите PDF-файл.');
+    return;
+  }
+  currentFile = f;
+  fname.textContent = f.name;
+  fmeta.textContent = humanSize(f.size) + ' · PDF';
+  filebar.style.display = 'flex';
+  dropzone.style.display = 'none';
+  convertBtn.disabled = false;
+  results.classList.remove('show');
+  grid.innerHTML = '';
+}
+
+convertBtn.addEventListener('click', async () => {
+  if(!currentFile) return;
+  convertBtn.disabled = true;
+  progressWrap.classList.add('show');
+  progressFill.style.width = '0%';
+  progressLabel.textContent = 'Загрузка PDF…';
+  results.classList.remove('show');
+  grid.innerHTML = '';
+  images.forEach(img => URL.revokeObjectURL(img.url));
+  images = [];
+
+  try{
+    const arrayBuffer = await currentFile.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const total = pdf.numPages;
+    const baseName = currentFile.name.replace(/\.pdf$/i, '');
+
+    for(let i = 1; i <= total; i++){
+      progressLabel.textContent = `Страница ${i} из ${total}…`;
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: currentScale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      const mime = currentFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
+      const q = currentFormat === 'jpeg' ? (parseInt(quality.value) / 100) : undefined;
+      const blob = await new Promise(res => canvas.toBlob(res, mime, q));
+      const url = URL.createObjectURL(blob);
+      const ext = currentFormat === 'jpeg' ? 'jpg' : 'png';
+      const name = `${baseName}_стр${String(i).padStart(2,'0')}.${ext}`;
+      images.push({ blob, url, name, page: i });
+
+      progressFill.style.width = `${Math.round((i/total)*100)}%`;
+      renderGrid();
+    }
+
+    progressLabel.textContent = `Готово · ${total} стр.`;
+    resultsTitle.textContent = `Готово — ${total} ${pluralPages(total)}`;
+    results.classList.add('show');
+  }catch(err){
+    console.error(err);
+    progressLabel.textContent = 'Ошибка при обработке файла.';
+  }finally{
+    convertBtn.disabled = false;
+    setTimeout(() => progressWrap.classList.remove('show'), 1200);
+  }
+});
+
+function pluralPages(n){
+  const mod10 = n % 10, mod100 = n % 100;
+  if(mod10 === 1 && mod100 !== 11) return 'страница';
+  if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'страницы';
+  return 'страниц';
+}
+
+function renderGrid(){
+  grid.innerHTML = '';
+  images.forEach(img => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <img src="${img.url}" alt="Страница ${img.page}">
+      <div class="card-foot">
+        <span>Стр. ${img.page}</span>
+        <span class="dl" data-dl><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </div>
+    `;
+    card.addEventListener('click', () => openLightbox(img.page - 1));
+    card.querySelector('[data-dl]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      downloadImage(img);
+    });
+    grid.appendChild(card);
+  });
+}
+
+function downloadImage(img){
+  const a = document.createElement('a');
+  a.href = img.url;
+  a.download = img.name;
+  a.click();
+}
+
+// ---- Lightbox ----
+const lightbox = document.getElementById('lightbox');
+const lbImg = document.getElementById('lbImg');
+const lbTitle = document.getElementById('lbTitle');
+const lbClose = document.getElementById('lbClose');
+const lbPrev = document.getElementById('lbPrev');
+const lbNext = document.getElementById('lbNext');
+const lbDownload = document.getElementById('lbDownload');
+
+let lbIndex = 0;
+
+function openLightbox(index){
+  if(images.length === 0) return;
+  lbIndex = index;
+  updateLightbox();
+  lightbox.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox(){
+  lightbox.classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function updateLightbox(){
+  const img = images[lbIndex];
+  if(!img) return;
+  lbImg.src = img.url;
+  lbImg.alt = img.name;
+  lbTitle.textContent = `Стр. ${img.page} из ${images.length}`;
+  lbPrev.disabled = lbIndex === 0;
+  lbNext.disabled = lbIndex === images.length - 1;
+}
+
+lbClose.addEventListener('click', closeLightbox);
+lightbox.addEventListener('click', (e) => { if(e.target === lightbox) closeLightbox(); });
+lbPrev.addEventListener('click', () => { if(lbIndex > 0){ lbIndex--; updateLightbox(); } });
+lbNext.addEventListener('click', () => { if(lbIndex < images.length - 1){ lbIndex++; updateLightbox(); } });
+lbDownload.addEventListener('click', () => downloadImage(images[lbIndex]));
+
+document.addEventListener('keydown', (e) => {
+  if(!lightbox.classList.contains('show')) return;
+  if(e.key === 'Escape') closeLightbox();
+  if(e.key === 'ArrowLeft' && lbIndex > 0){ lbIndex--; updateLightbox(); }
+  if(e.key === 'ArrowRight' && lbIndex < images.length - 1){ lbIndex++; updateLightbox(); }
+});
+
+downloadAll.addEventListener('click', async () => {
+  if(images.length === 0) return;
+  downloadAll.textContent = 'Архивируем…';
+  const zip = new JSZip();
+  images.forEach(img => zip.file(img.name, img.blob));
+  const content = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(content);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (currentFile ? currentFile.name.replace(/\.pdf$/i,'') : 'images') + '.zip';
+  a.click();
+  URL.revokeObjectURL(url);
+  downloadAll.innerHTML = `<svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Скачать всё (.zip)`;
+});
+</script>
+
+</body>
+</html>
