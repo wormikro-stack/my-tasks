@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>PDF редактор — стирание дат</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --panel: #ffffff;
+    --ink: #1f2320;
+    --muted: #6b6f6c;
+    --accent: #2f6b4f;
+    --accent-hover: #245a41;
+    --line: #e2e0da;
+    --danger: #b23a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header {
+    padding: 18px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 {
+    font-size: 18px;
+    margin: 0;
+    font-weight: 600;
+  }
+  header p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  button, .file-btn {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover, .file-btn:hover {
+    border-color: var(--accent);
+  }
+  button.primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  button.primary:hover { background: var(--accent-hover); }
+  button.danger-outline { color: var(--danger); border-color: var(--danger); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  input[type=file] { display: none; }
+  main {
+    display: flex;
+    gap: 20px;
+    padding: 20px 24px 40px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  #canvasWrap {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+    line-height: 0;
+    flex: 1 1 600px;
+    min-width: 300px;
+  }
+  #placeholder {
+    padding: 80px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  canvas { display: block; max-width: 100%; height: auto; }
+  #overlay {
+    position: absolute;
+    top: 0; left: 0;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  aside {
+    width: 260px;
+    flex: 0 0 260px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  aside h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  .mode-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+  .mode-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .mode-group label.active { border-color: var(--accent); background: #eef5f0; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .field input[type=text], .field input[type=number] {
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .pagenav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 12px;
+    font-size: 13px;
+  }
+  .zoom-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border-left: 1px solid var(--line);
+    padding-left: 10px;
+    margin-left: 4px;
+  }
+  .zoom-group button {
+    padding: 8px 12px;
+    font-weight: 600;
+  }
+  #zoomLevel {
+    font-size: 13px;
+    min-width: 46px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .hint {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 6px;
+  }
+  .box-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+  .box-item button { padding: 3px 8px; font-size: 11px; }
+  #boxList { max-height: 160px; overflow-y: auto; margin-bottom: 4px; }
+  .empty-note { font-size: 12px; color: var(--muted); }
+
+  @media (max-width: 700px) {
+    header { padding: 12px 14px; flex-direction: column; align-items: stretch; }
+    header h1 { font-size: 15px; }
+    header p { font-size: 12px; }
+    .toolbar { flex-wrap: wrap; gap: 6px; }
+    .toolbar button, .toolbar .file-btn { padding: 6px 10px; font-size: 12px; }
+    .zoom-group { border-left: none; padding-left: 0; margin-left: 0; width: 100%; justify-content: center; }
+    main { flex-direction: column; padding: 12px 14px 40px; gap: 14px; }
+    #canvasWrap { flex: none; width: 100%; min-width: 0; }
+    aside { width: 100%; flex: none; }
+    .back-link { font-size: 12px !important; padding: 3px 8px !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <a href="index.html" class="back-link" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;color:var(--muted);font-size:14px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);white-space:nowrap;">← Назад</a>
+      <h1>Редактор PDF — стирание дат</h1>
+    </div>
+    <p>Загрузите PDF, закрасьте нужную область белым и, при желании, впишите новый текст. Работает прямо в браузере.</p>
+  </div>
+  <div class="toolbar">
+    <label class="file-btn" for="fileInput">📄 Загрузить PDF</label>
+    <input id="fileInput" type="file" accept="application/pdf">
+    <button id="undoBtn" disabled>↩ Отменить</button>
+    <button id="clearBtn" disabled>Очистить страницу</button>
+    <button id="downloadBtn" class="primary" disabled>⬇ Скачать PDF</button>
+    <div class="zoom-group">
+      <button id="zoomOutBtn" disabled>−</button>
+      <span id="zoomLevel">150%</span>
+      <button id="zoomInBtn" disabled>+</button>
+      <button id="zoomResetBtn" disabled>1:1</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="canvasWrap">
+    <div id="placeholder">Загрузите PDF-файл, чтобы начать редактирование</div>
+    <canvas id="pdfCanvas" style="display:none;"></canvas>
+    <canvas id="overlay" style="display:none;"></canvas>
+  </div>
+
+  <aside>
+    <h2>Режим</h2>
+    <div class="mode-group">
+      <label id="modeWhiteLabel" class="active">
+        <input type="radio" name="mode" value="white" checked> Закрасить белым (стереть)
+      </label>
+      <label id="modeTextLabel">
+        <input type="radio" name="mode" value="text"> Вписать текст (напр. новая дата)
+      </label>
+    </div>
+
+    <div class="field" id="textFieldWrap" style="display:none;">
+      <label>Текст для вставки</label>
+      <input type="text" id="textInput" placeholder="напр. 21.07.2026">
+      <label style="margin-top:8px;">Размер шрифта</label>
+      <input type="number" id="fontSize" value="11" min="6" max="40">
+    </div>
+
+    <div class="hint">
+      Просто выделите область мышью прямо на документе. Если выбран режим «текст» — введённый текст встанет в левый верхний угол выделения. Используйте кнопки «+/−» вверху, чтобы увеличить документ для точного выделения.
+    </div>
+
+    <h2 style="margin-top:20px;">Правки на странице</h2>
+    <div id="boxList"><div class="empty-note">Пока ничего не добавлено</div></div>
+
+    <div class="pagenav" id="pagenav" style="display:none;">
+      <button id="prevPage">← Стр.</button>
+      <span id="pageIndicator">1 / 1</span>
+      <button id="nextPage">Стр. →</button>
+    </div>
+  </aside>
+</main>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const { PDFDocument, rgb, StandardFonts } = PDFLib;
+
+let originalBytes = null;   // ArrayBuffer of uploaded PDF
+let pdfDoc = null;          // pdf.js document (for rendering)
+let currentPageNum = 1;
+let numPages = 1;
+let renderScale = 1.5;      // current zoom (pt -> canvas px)
+const MIN_SCALE = 0.6, MAX_SCALE = 4.0, SCALE_STEP = 0.25, BASE_SCALE = 1.5;
+let pageViewport = null;
+let originalBaseName = null;
+let invoiceFilename = null;
+
+// edits[pageIndex] = array of {type:'white'|'text', xPt,yPt,wPt,hPt (PDF points, top-left origin), text, fontSize}
+let edits = {};
+
+const fileInput = document.getElementById('fileInput');
+const placeholder = document.getElementById('placeholder');
+const pdfCanvas = document.getElementById('pdfCanvas');
+const overlay = document.getElementById('overlay');
+const ctx2 = overlay.getContext('2d');
+const downloadBtn = document.getElementById('downloadBtn');
+const undoBtn = document.getElementById('undoBtn');
+const clearBtn = document.getElementById('clearBtn');
+const pagenav = document.getElementById('pagenav');
+const pageIndicator = document.getElementById('pageIndicator');
+const boxList = document.getElementById('boxList');
+const textFieldWrap = document.getElementById('textFieldWrap');
+const textInput = document.getElementById('textInput');
+const fontSizeInput = document.getElementById('fontSize');
+const modeWhiteLabel = document.getElementById('modeWhiteLabel');
+const modeTextLabel = document.getElementById('modeTextLabel');
+const zoomInBtn = document.getElementById('zoomInBtn');
+const zoomOutBtn = document.getElementById('zoomOutBtn');
+const zoomResetBtn = document.getElementById('zoomResetBtn');
+const zoomLevel = document.getElementById('zoomLevel');
+
+document.querySelectorAll('input[name=mode]').forEach(r => {
+  r.addEventListener('change', () => {
+    const mode = document.querySelector('input[name=mode]:checked').value;
+    textFieldWrap.style.display = mode === 'text' ? 'block' : 'none';
+    modeWhiteLabel.classList.toggle('active', mode === 'white');
+    modeTextLabel.classList.toggle('active', mode === 'text');
+  });
+});
+
+fileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  originalBytes = await file.arrayBuffer();
+  originalBaseName = file.name.replace(/\.pdf$/i, '');
+  invoiceFilename = null;
+  edits = {};
+  currentPageNum = 1;
+  renderScale = BASE_SCALE;
+  updateZoomLabel();
+  await loadPdf(originalBytes.slice(0));
+});
+
+async function loadPdf(bytes) {
+  pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
+  numPages = pdfDoc.numPages;
+  placeholder.style.display = 'none';
+  pdfCanvas.style.display = 'block';
+  overlay.style.display = 'block';
+  downloadBtn.disabled = false;
+  zoomInBtn.disabled = false;
+  zoomOutBtn.disabled = false;
+  zoomResetBtn.disabled = false;
+  pagenav.style.display = numPages > 1 ? 'flex' : 'none';
+  await renderPage(currentPageNum);
+  extractInvoiceFilename(); // async, doesn't block UI
+}
+
+async function extractInvoiceFilename() {
+  try {
+    const page = await pdfDoc.getPage(1);
+    const content = await page.getTextContent();
+    const text = content.items.map(i => i.str).join(' ');
+    // Ищем "FACTURA <номер>" (или похожие варианты: Factura, Invoice, №)
+    let match = text.match(/FACTURA\s*[:№]?\s*([A-Za0-9][A-Za0-9\-\/]*)/i);
+    if (!match) match = text.match(/INVOICE\s*[:№]?\s*([A-Za0-9][A-Za0-9\-\/]*)/i);
+    if (match) {
+      invoiceFilename = sanitizeFilename(`FACTURA_${match[1]}`);
+    }
+  } catch (err) {
+    console.warn('Не удалось определить номер фактуры:', err);
+  }
+}
+
+function sanitizeFilename(name) {
+  return name.replace(/[^a-zA-Z0-9А-Яа-яЁё_\-]+/g, '_').replace(/_+/g, '_');
+}
+
+function updateZoomLabel() {
+  zoomLevel.textContent = Math.round((renderScale / BASE_SCALE) * 100) + '%';
+}
+
+async function setZoom(newScale) {
+  renderScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
+  updateZoomLabel();
+  if (pdfDoc) await renderPage(currentPageNum);
+}
+
+zoomInBtn.addEventListener('click', () => setZoom(renderScale + SCALE_STEP));
+zoomOutBtn.addEventListener('click', () => setZoom(renderScale - SCALE_STEP));
+zoomResetBtn.addEventListener('click', () => setZoom(BASE_SCALE));
+
+async function renderPage(num) {
+  const page = await pdfDoc.getPage(num);
+  pageViewport = page.getViewport({ scale: renderScale });
+  pdfCanvas.width = pageViewport.width;
+  pdfCanvas.height = pageViewport.height;
+  overlay.width = pageViewport.width;
+  overlay.height = pageViewport.height;
+  overlay.style.width = pdfCanvas.style.width;
+  overlay.style.height = pdfCanvas.style.height;
+
+  const renderCtx = pdfCanvas.getContext('2d');
+  await page.render({ canvasContext: renderCtx, viewport: pageViewport }).promise;
+
+  pageIndicator.textContent = `${num} / ${numPages}`;
+  redrawOverlay();
+  refreshBoxList();
+  updateUndoState();
+}
+
+function getPageEdits() {
+  if (!edits[currentPageNum]) edits[currentPageNum] = [];
+  return edits[currentPageNum];
+}
+
+function redrawOverlay() {
+  ctx2.clearRect(0, 0, overlay.width, overlay.height);
+  const list = getPageEdits();
+  list.forEach(box => drawBox(box));
+}
+
+function drawBox(box) {
+  // stored coords are in PDF points; convert to current-scale canvas px for display
+  const x = box.xPt * renderScale;
+  const y = box.yPt * renderScale;
+  const w = box.wPt * renderScale;
+  const h = box.hPt * renderScale;
+  if (box.type === 'white') {
+    ctx2.fillStyle = '#ffffff';
+    ctx2.fillRect(x, y, w, h);
+    ctx2.strokeStyle = 'rgba(178,58,58,0.5)';
+    ctx2.setLineDash([4,3]);
+    ctx2.strokeRect(x, y, w, h);
+    ctx2.setLineDash([]);
+  } else {
+    ctx2.fillStyle = '#ffffff';
+    ctx2.fillRect(x, y, w, h);
+    ctx2.strokeStyle = 'rgba(47,107,79,0.6)';
+    ctx2.setLineDash([4,3]);
+    ctx2.strokeRect(x, y, w, h);
+    ctx2.setLineDash([]);
+    ctx2.fillStyle = '#1f2320';
+    ctx2.font = `${box.fontSize * renderScale}px Arial`;
+    ctx2.textBaseline = 'top';
+    ctx2.fillText(box.text, x + 2, y + 2);
+  }
+}
+
+// --- drawing interaction ---
+let dragging = false;
+let startX = 0, startY = 0;
+
+function getPos(e) {
+  const rect = overlay.getBoundingClientRect();
+  const scaleX = overlay.width / rect.width;
+  const scaleY = overlay.height / rect.height;
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+}
+
+overlay.addEventListener('mousedown', startDrag);
+overlay.addEventListener('touchstart', startDrag);
+overlay.addEventListener('mousemove', moveDrag);
+overlay.addEventListener('touchmove', moveDrag);
+window.addEventListener('mouseup', endDrag);
+window.addEventListener('touchend', endDrag);
+
+function startDrag(e) {
+  if (!pdfDoc) return;
+  e.preventDefault();
+  const p = getPos(e);
+  dragging = true;
+  startX = p.x; startY = p.y;
+}
+
+function moveDrag(e) {
+  if (!dragging) return;
+  e.preventDefault();
+  const p = getPos(e);
+  redrawOverlay();
+  const x = Math.min(startX, p.x), y = Math.min(startY, p.y);
+  const w = Math.abs(p.x - startX), h = Math.abs(p.y - startY);
+  ctx2.fillStyle = 'rgba(178,58,58,0.15)';
+  ctx2.fillRect(x, y, w, h);
+  ctx2.strokeStyle = '#b23a3a';
+  ctx2.strokeRect(x, y, w, h);
+}
+
+function endDrag(e) {
+  if (!dragging) return;
+  dragging = false;
+  const p = getPos(e.changedTouches ? e.changedTouches[0] : e);
+  const x = Math.min(startX, p.x), y = Math.min(startY, p.y);
+  const w = Math.abs(p.x - startX), h = Math.abs(p.y - startY);
+  if (w < 4 || h < 4) { redrawOverlay(); return; }
+
+  const mode = document.querySelector('input[name=mode]:checked').value;
+  // convert canvas px (current zoom) to PDF points so the box stays correct at any zoom
+  const box = {
+    type: mode,
+    xPt: x / renderScale,
+    yPt: y / renderScale,
+    wPt: w / renderScale,
+    hPt: h / renderScale,
+  };
+  if (mode === 'text') {
+    const text = textInput.value.trim();
+    if (!text) { alert('Введите текст для вставки перед выделением области.'); redrawOverlay(); return; }
+    box.text = text;
+    box.fontSize = parseFloat(fontSizeInput.value) || 11;
+  }
+  getPageEdits().push(box);
+  redrawOverlay();
+  refreshBoxList();
+  updateUndoState();
+}
+
+function updateUndoState() {
+  const list = getPageEdits();
+  undoBtn.disabled = list.length === 0;
+  clearBtn.disabled = list.length === 0;
+}
+
+undoBtn.addEventListener('click', () => {
+  const list = getPageEdits();
+  list.pop();
+  redrawOverlay();
+  refreshBoxList();
+  updateUndoState();
+});
+
+clearBtn.addEventListener('click', () => {
+  edits[currentPageNum] = [];
+  redrawOverlay();
+  refreshBoxList();
+  updateUndoState();
+});
+
+function refreshBoxList() {
+  const list = getPageEdits();
+  boxList.innerHTML = '';
+  if (list.length === 0) {
+    boxList.innerHTML = '<div class="empty-note">Пока ничего не добавлено</div>';
+    return;
+  }
+  list.forEach((box, i) => {
+    const div = document.createElement('div');
+    div.className = 'box-item';
+    const label = box.type === 'white' ? '⬜ Стёрто' : `🖊 "${box.text}"`;
+    div.innerHTML = `<span>${label}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.onclick = () => {
+      list.splice(i, 1);
+      redrawOverlay();
+      refreshBoxList();
+      updateUndoState();
+    };
+    div.appendChild(btn);
+    boxList.appendChild(div);
+  });
+}
+
+document.getElementById('prevPage').addEventListener('click', async () => {
+  if (currentPageNum > 1) { currentPageNum--; await renderPage(currentPageNum); }
+});
+document.getElementById('nextPage').addEventListener('click', async () => {
+  if (currentPageNum < numPages) { currentPageNum++; await renderPage(currentPageNum); }
+});
+
+// --- export ---
+downloadBtn.addEventListener('click', async () => {
+  if (!originalBytes) return;
+  downloadBtn.disabled = true;
+  downloadBtn.textContent = 'Сохранение…';
+  try {
+    const doc = await PDFDocument.load(originalBytes.slice(0));
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const pages = doc.getPages();
+
+    for (const pageNumStr of Object.keys(edits)) {
+      const pageNum = parseInt(pageNumStr, 10);
+      const list = edits[pageNum];
+      if (!list || list.length === 0) continue;
+      const page = pages[pageNum - 1];
+      const { height: ph } = page.getSize();
+
+      list.forEach(box => {
+        // box coords are already stored in PDF points, top-left origin
+        const pdfX = box.xPt;
+        const pdfW = box.wPt;
+        const pdfH = box.hPt;
+        const pdfY = ph - box.yPt - pdfH;         // pdf-lib origin is bottom-left
+
+        // white rectangle to erase
+        page.drawRectangle({
+          x: pdfX, y: pdfY, width: pdfW, height: pdfH,
+          color: rgb(1, 1, 1),
+        });
+
+        if (box.type === 'text') {
+          page.drawText(box.text, {
+            x: pdfX + 2,
+            y: pdfY + pdfH - box.fontSize,
+            size: box.fontSize,
+            font,
+            color: rgb(0.12, 0.14, 0.13),
+          });
+        }
+      });
+    }
+
+    const outBytes = await doc.save();
+    const blob = new Blob([outBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (invoiceFilename || originalBaseName || 'edited') + '.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Ошибка при сохранении PDF: ' + err.message);
+    console.error(err);
+  } finally {
+    downloadBtn.disabled = false;
+    downloadBtn.textContent = '⬇ Скачать PDF';
+  }
+});
+</script>
+
+</body>
+</html>
