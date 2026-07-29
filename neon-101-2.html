@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Неон 101</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #0b0e1a; }
+  #root { min-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+/* =========================================================
+   ENGINE
+   ========================================================= */
+
+const SUITS = [
+  { sym: "♠", name: "пики", red: false },
+  { sym: "♥", name: "черви", red: true },
+  { sym: "♦", name: "бубны", red: true },
+  { sym: "♣", name: "крести", red: false },
+];
+const RANKS = ["6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+const RANK_FACE = { J: "В", Q: "Д", K: "К", A: "Т" };
+const faceOf = (rank) => RANK_FACE[rank] || rank;
+
+function defaultRules() {
+  return [
+    { id: "r6", rank: "6", suitFilter: null, label: "Шестёрки", action: "none", amount: 0, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "skip", points: 0 },
+    { id: "r7", rank: "7", suitFilter: null, label: "Семёрки", action: "draw", amount: 2, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "skip", points: 0 },
+    { id: "r8", rank: "8", suitFilter: null, label: "Восьмёрки", action: "draw", amount: 1, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "play", points: 0 },
+    { id: "r9", rank: "9", suitFilter: null, label: "Девятки", action: "none", amount: 0, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "skip", points: 0 },
+    { id: "r10", rank: "10", suitFilter: null, label: "Десятки", action: "none", amount: 0, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "skip", points: 0 },
+    { id: "rJ", rank: "J", suitFilter: null, label: "Валеты", action: "order_suit", amount: 0, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "skip", points: 10 },
+    { id: "rQ", rank: "Q", suitFilter: null, label: "Дамы", action: "none", amount: 0, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "skip", points: 10 },
+    { id: "rKs", rank: "K", suitFilter: "♠", label: "Король пик ♠", action: "none", amount: 0, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "skip", points: 10 },
+    { id: "rKh", rank: "K", suitFilter: "♥", label: "Король червей ♥", action: "draw", amount: 4, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "skip", points: 10, choice: { altAmount: 5, altAfterDraw: "play" } },
+    { id: "rKd", rank: "K", suitFilter: "♦", label: "Король бубён ♦", action: "none", amount: 0, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "skip", points: 10 },
+    { id: "rKc", rank: "K", suitFilter: "♣", label: "Король треф ♣", action: "none", amount: 0, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "skip", points: 10 },
+    { id: "rA", rank: "A", suitFilter: null, label: "Тузы", action: "skip", amount: 0, stack: false, onlyRankCovers: false, skipAfter: false, afterDraw: "skip", points: 15 },
+  ];
+}
+
+
+function getRuleForCard(card, rules) {
+  for (const r of rules) {
+    if (r.rank !== card.rank) continue;
+    if (r.suitFilter == null) return r;
+    if (r.suitFilter === card.suit) return r;
+  }
+  return null;
+}
+
+function pointsOf(card, rules) {
+  const r = getRuleForCard(card, rules);
+  return r ? r.points : 0;
+}
+
+function buildDeck() {
+  const deck = [];
+  for (const s of SUITS) for (const rk of RANKS) deck.push({ rank: rk, suit: s.sym });
+  return deck;
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function canPlayCard(card, topCard, activeSuit, pendingDraw, rules) {
+  const cardRule = getRuleForCard(card, rules);
+  if (pendingDraw) {
+    return !!cardRule && cardRule.id === pendingDraw.ruleId && cardRule.stack;
+  }
+  if (cardRule && cardRule.action === "order_suit") return true;
+  const topRule = getRuleForCard(topCard, rules);
+  if (topRule && topRule.onlyRankCovers) return card.rank === topCard.rank;
+  return card.suit === activeSuit || card.rank === topCard.rank;
+}
+
+/* =========================================================
+   UI
+   ========================================================= */
+
+const BOT_NAMES = ["Робот-Соня", "Кибер-Гриша", "Нео-Валя"];
+const SUIT_META = Object.fromEntries(SUITS.map((s) => [s.sym, s]));
+
+function Card({ card, faceDown, disabled, selected, onClick, small }) {
+  if (faceDown) {
+    return <div className={"k-card k-back" + (small ? " small" : "")} />;
+  }
+  const red = SUIT_META[card.suit].red;
+  return (
+    <div
+      className={"k-card" + (small ? " small" : "") + (disabled ? " disabled" : "") + (selected ? " selected" : "") + (red ? " red" : " black")}
+      onClick={disabled ? undefined : onClick}
+    >
+      <span className="k-rank top">{faceOf(card.rank)}</span>
+      <span className="k-suit-big">{card.suit}</span>
+      <span className="k-rank bottom">{faceOf(card.rank)}</span>
+    </div>
+  );
+}
+
+function sortHand(hand) {
+  const order = { "♠": 0, "♣": 1, "♥": 2, "♦": 3 };
+  const rorder = Object.fromEntries(RANKS.map((r, i) => [r, i]));
+  return hand.slice().sort((a, b) => (order[a.suit] - order[b.suit]) || (rorder[a.rank] - rorder[b.rank]));
+}
+
+function Game101() {
+  const [rules, setRules] = useState(defaultRules);
+  const [numPlayers, setNumPlayers] = useState(3);
+  const [targetScore, setTargetScore] = useState(101);
+  const [players, setPlayers] = useState(null); // [{name,isAI,hand,score}]
+  const [deck, setDeck] = useState([]);
+  const [topCard, setTopCard] = useState(null);
+  const [activeSuit, setActiveSuit] = useState(null);
+  const [pendingDraw, setPendingDraw] = useState(null);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [chooseSuitFor, setChooseSuitFor] = useState(null); // {playerIdx, cards}
+  const [selectedCards, setSelectedCards] = useState([]); // human's manually built group to play
+  const [shakeSelection, setShakeSelection] = useState(false);
+  const [log, setLog] = useState([]);
+  const [roundOver, setRoundOver] = useState(null); // {results:[{name,gained}], gameOver, standings}
+  const [botThinking, setBotThinking] = useState(false);
+  const [voluntaryDraw, setVoluntaryDraw] = useState(false);
+  const [flyingCard, setFlyingCard] = useState(null);
+  const [roundResultVisible, setRoundResultVisible] = useState(false);
+
+  useEffect(() => {
+    setSelectedCards([]);
+    setVoluntaryDraw(false);
+  }, [currentIdx, roundOver]);
+
+  useEffect(() => {
+    if (roundOver) {
+      const t = setTimeout(() => setRoundResultVisible(true), 3000);
+      return () => clearTimeout(t);
+    }
+    setRoundResultVisible(false);
+  }, [roundOver]);
+
+  function pushLog(msg) {
+    setLog((prev) => [msg, ...prev].slice(0, 6));
+  }
+
+  function startGame(nPlayers = numPlayers) {
+    const ps = [{ name: "Вы", isAI: false, hand: [], score: 0 }];
+    for (let i = 0; i < nPlayers - 1; i++) ps.push({ name: BOT_NAMES[i], isAI: true, hand: [], score: 0 });
+    setPlayers(ps);
+    setRoundOver(null);
+    setLog([]);
+    dealRound(ps, 0);
+  }
+
+  function dealRound(basePlayers, startIdx) {
+    let d = shuffle(buildDeck());
+    const ps = basePlayers.map((p) => ({ ...p, hand: [] }));
+    // раздаём по 5 карт каждому
+    for (let i = 0; i < 5; i++) {
+      for (let p = 0; p < ps.length; p++) {
+        ps[p].hand.push(d.pop());
+      }
+    }
+    // одна карта раздающего открывается на стол (у него остаётся 4)
+    const dealerIdx = startIdx % ps.length;
+    const top = ps[dealerIdx].hand.pop();
+
+    // первая карта сразу применяет своё правило
+    const topRule = getRuleForCard(top, rules);
+    let pending = null;
+    let dir = 1;
+    let next = dealerIdx;
+
+    if (topRule) {
+      if (topRule.action === "draw") {
+        pending = { ruleId: topRule.id, amount: topRule.amount, afterDraw: topRule.afterDraw || "skip", choice: topRule.choice || null };
+        next = advanceTurn(dealerIdx, 0, ps, 1);
+      } else if (topRule.action === "skip") {
+        next = advanceTurn(dealerIdx, 1, ps, 1);
+      } else if (topRule.action === "reverse") {
+        dir = -1;
+        next = advanceTurn(dealerIdx, 0, ps, -1);
+      } else if (top.rank !== "6") {
+        next = advanceTurn(dealerIdx, 0, ps, 1);
+      }
+      // rank === "6": ход остаётся у раздающего — он покрывает
+    } else {
+      next = advanceTurn(dealerIdx, 0, ps, 1);
+    }
+
+    setPlayers(ps);
+    setDeck(d);
+    setTopCard(top);
+    setActiveSuit(top.suit);
+    setPendingDraw(pending);
+    setDirection(dir);
+    setCurrentIdx(next);
+    setChooseSuitFor(null);
+    setRoundOver(null);
+    pushLog("Новый раунд! Карта на столе: " + faceOf(top.rank) + top.suit + (topRule ? " (" + topRule.label + ")" : ""));
+  }
+
+  function reshuffleDeck() {
+    const allCards = buildDeck();
+    const used = new Set();
+    for (const p of players) {
+      if (!p) continue;
+      for (const c of p.hand) used.add(c.rank + "|" + c.suit);
+    }
+    for (const c of deck) used.add(c.rank + "|" + c.suit);
+    if (topCard) used.add(topCard.rank + "|" + topCard.suit);
+    const discardPile = shuffle(allCards.filter(c => !used.has(c.rank + "|" + c.suit)));
+    pushLog("Колода перетасована из сброса");
+    return discardPile;
+  }
+
+  function drawFromDeck(n, deckArr, discardTop) {
+    let d = deckArr.slice();
+    const drawn = [];
+    for (let i = 0; i < n; i++) {
+      if (d.length === 0) {
+        break;
+      }
+      drawn.push(d.pop());
+    }
+    return { drawn, remaining: d };
+  }
+
+  function advanceTurn(fromIdx, extraSkips, ps, dir) {
+    const n = ps.length;
+    let idx = fromIdx;
+    idx = (idx + dir * (1 + extraSkips) + n * 10) % n;
+    return idx;
+  }
+
+  function passTurn(fromIdx, ps, dir) {
+    const topRule = topCard && getRuleForCard(topCard, rules);
+    const skipExtra = topRule && topRule.action === "skip" ? 1 : 0;
+    const result = advanceTurn(fromIdx, skipExtra, ps, dir);
+    // if skip doesn't advance (e.g. 2 players), fall back to normal advance
+    return result === fromIdx ? advanceTurn(fromIdx, 0, ps, dir) : result;
+  }
+
+  function finishPlay(playerIdx, cardsIn, chosenSuit) {
+    const cardsPlayed = Array.isArray(cardsIn) ? cardsIn : [cardsIn];
+    setPlayers((prevPlayers) => {
+      let ps = prevPlayers.map((p) => ({ ...p }));
+      ps[playerIdx].hand = ps[playerIdx].hand.filter(
+        (c) => !cardsPlayed.some((pc) => pc.rank === c.rank && pc.suit === c.suit)
+      );
+
+      const rulesPlayed = cardsPlayed.map((c) => getRuleForCard(c, rules));
+      const lastCard = cardsPlayed[cardsPlayed.length - 1];
+      const lastRule = rulesPlayed[rulesPlayed.length - 1];
+
+      let newTop = lastCard;
+      let newActiveSuit = lastCard.suit;
+      let newPending = null;
+      let extraSkip = 0;
+      let dir = direction;
+      let sameTurn = false;
+
+      // does this whole throw match/continue an existing pending stacking attack?
+      const stackMatches =
+        pendingDraw &&
+        rulesPlayed.length &&
+        rulesPlayed.every((r) => r && r.id === pendingDraw.ruleId && r.stack);
+
+      if (stackMatches) {
+        const addAmount = rulesPlayed.reduce((s, r) => s + r.amount, 0);
+        newPending = { ruleId: pendingDraw.ruleId, amount: pendingDraw.amount + addAmount, afterDraw: pendingDraw.afterDraw, choice: pendingDraw.choice || null };
+      } else {
+        let drawAmount = 0;
+        let drawRuleId = null;
+        let drawAfter = "skip";
+        let drawChoice = null;
+        for (const r of rulesPlayed) {
+          if (!r) continue;
+          if (r.action === "draw") {
+            drawAmount += r.amount;
+            drawRuleId = r.id;
+            drawAfter = r.afterDraw || "skip";
+            if (r.choice) drawChoice = r.choice;
+          } else if (r.action === "skip") {
+            extraSkip += 1;
+          } else if (r.action === "reverse") {
+            dir = -dir;
+          } else if (r.action === "extra_turn") {
+            sameTurn = true;
+          } else if (r.action === "order_suit") {
+            newActiveSuit = chosenSuit || lastCard.suit;
+            if (r.skipAfter) extraSkip += 1;
+          }
+        }
+        if (drawAmount > 0) {
+          newPending = { ruleId: drawRuleId, amount: drawAmount, afterDraw: drawAfter, choice: drawChoice };
+        }
+      }
+
+      setDirection(dir);
+      setPendingDraw(newPending);
+      setTopCard(newTop);
+      setActiveSuit(newActiveSuit);
+
+      // Six: whoever played it must cover it — turn stays
+      if (lastCard.rank === "6") sameTurn = true;
+
+      // round end check — six forces cover, never ends round
+      if (ps[playerIdx].hand.length === 0 && lastCard.rank !== "6") {
+        let drawn = [];
+        // apply pending draw (e.g. K♥) to victim before scoring
+        if (newPending && newPending.amount > 0) {
+          const victimIdx = advanceTurn(playerIdx, extraSkip, ps, dir);
+          let srcDeck = [...deck];
+          if (srcDeck.length === 0) {
+            ps[victimIdx].score += 10;
+            srcDeck = reshuffleDeck();
+          }
+          const result = drawFromDeck(newPending.amount, srcDeck, topCard);
+          drawn = result.drawn;
+          ps[victimIdx].hand = [...ps[victimIdx].hand, ...drawn];
+          setDeck(result.remaining);
+          setPendingDraw(null);
+          pushLog(ps[victimIdx].name + " берёт " + drawn.length + " карт(у/ы) в наказание от " + ps[playerIdx].name);
+        }
+        const jackCount = cardsPlayed.filter((c) => c.rank === "J").length;
+        const winnerGained = jackCount > 0 ? -20 * jackCount : 0;
+        const results = ps.map((p, i) => {
+          if (i === playerIdx) return { name: p.name, gained: winnerGained };
+          const pts = p.hand.reduce((s, c) => s + pointsOf(c, rules), 0);
+          return { name: p.name, gained: pts };
+        });
+        const newScores = ps.map((p, i) => p.score + results[i].gained);
+        const finalPs = ps.map((p, i) => ({ ...p, score: newScores[i] }));
+        const gameOver = newScores.some((s) => s >= targetScore);
+        pushLog(
+          (ps[playerIdx].name) +
+            " выложил(а) последнюю карту! " +
+            (jackCount > 0 ? "Концовка вальтом(и): " + winnerGained + " очк. " : "") +
+            "Раунд окончен."
+        );
+        setRoundOver({
+          winnerIdx: playerIdx,
+          results,
+          gameOver,
+          standings: finalPs.map((p) => ({ name: p.name, score: p.score })),
+        });
+        return finalPs;
+      }
+
+      let nextIdx;
+      if (sameTurn) {
+        nextIdx = playerIdx;
+      } else if (ps.length === 2 && extraSkip > 0) {
+        nextIdx = playerIdx;
+        for (let s = 0; s < extraSkip; s++) {
+          nextIdx = advanceTurn(nextIdx, 1, ps, dir);
+        }
+      } else {
+        nextIdx = advanceTurn(playerIdx, extraSkip, ps, dir);
+      }
+      setCurrentIdx(nextIdx);
+      return ps;
+    });
+  }
+
+  // shared tail: given a final group of cards to play, handle order_suit + log + finishPlay
+  function resolvePlay(playerIdx, group) {
+    setVoluntaryDraw(false);
+    const isAI = players[playerIdx].isAI;
+    const hasOrderSuit = group.some((c) => {
+      const r = getRuleForCard(c, rules);
+      return r && r.action === "order_suit";
+    });
+
+    if (hasOrderSuit && !isAI) {
+      const wouldEnd = group.length === players[playerIdx].hand.length;
+      if (!wouldEnd) {
+        setChooseSuitFor({ playerIdx, cards: group });
+        return;
+      }
+    }
+    let chosenSuit = null;
+    if (hasOrderSuit && isAI) {
+      const remain = players[playerIdx].hand.filter(
+        (c) => !group.some((gc) => gc.rank === c.rank && gc.suit === c.suit)
+      );
+      const counts = {};
+      for (const c of remain) counts[c.suit] = (counts[c.suit] || 0) + 1;
+      chosenSuit = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || group[0].suit;
+    }
+    const label = group.length > 1
+      ? group.map((c) => faceOf(c.rank) + c.suit).join(" ")
+      : faceOf(group[0].rank) + group[0].suit;
+    pushLog(players[playerIdx].name + " ходит: " + label);
+    setFlyingCard({ card: group[group.length - 1], playerIdx, type: "play" });
+    setTimeout(() => setFlyingCard(null), 1100);
+    finishPlay(playerIdx, group, chosenSuit);
+  }
+
+  // AI plays a card and, per house rule, auto-throws every other card of the same rank with it
+  function playCard(playerIdx, card) {
+    const sameRank = players[playerIdx].hand.filter(
+      (c) => c.rank === card.rank && !(c.suit === card.suit)
+    );
+    const group = sameRank.length > 0 ? [card, ...sameRank] : [card];
+    resolvePlay(playerIdx, group);
+  }
+
+  // human: toggle a card into/out of the manually-built group (only same rank can combine)
+  function toggleSelectCard(card) {
+    setSelectedCards((prev) => {
+      const exists = prev.some((c) => c.rank === card.rank && c.suit === card.suit);
+      if (exists) return prev.filter((c) => !(c.rank === card.rank && c.suit === card.suit));
+      if (prev.length > 0 && prev[0].rank !== card.rank) return [card];
+      return [...prev, card];
+    });
+  }
+
+  // human: attempt to play whatever is currently selected
+  function attemptPlaySelected() {
+    if (selectedCards.length === 0) return;
+    const anyLegal = selectedCards.some((c) => canPlayCard(c, topCard, activeSuit, pendingDraw, rules));
+    if (!anyLegal) {
+      setShakeSelection(true);
+      setTimeout(() => setShakeSelection(false), 450);
+      return;
+    }
+    const group = selectedCards;
+    setSelectedCards([]);
+    resolvePlay(0, group);
+  }
+
+  function confirmSuitChoice(suit) {
+    const { playerIdx, cards } = chooseSuitFor;
+    setChooseSuitFor(null);
+    pushLog(players[playerIdx].name + " заказывает масть: " + suit);
+    finishPlay(playerIdx, cards, suit);
+  }
+
+  function handleForcedDraw(playerIdx, overrideAmount, overrideAfterDraw) {
+    const amount = overrideAmount != null ? overrideAmount : pendingDraw ? pendingDraw.amount : 1;
+    const afterDraw = overrideAfterDraw || (pendingDraw ? pendingDraw.afterDraw : "skip") || "skip";
+    let srcDeck = deck;
+    if (srcDeck.length === 0 && amount > 0) {
+      setPlayers((prev) => {
+        const ps = prev.map((p, i) => i === playerIdx ? { ...p, score: p.score + 10 } : p);
+        return ps;
+      });
+      pushLog(players[playerIdx].name + " +10 очков (колода пуста)");
+      srcDeck = reshuffleDeck();
+      setDeck(srcDeck);
+    }
+    const { drawn, remaining } = drawFromDeck(amount, srcDeck, topCard);
+    setDeck(remaining);
+    setPlayers((prev) => {
+      const ps = prev.map((p) => ({ ...p }));
+      ps[playerIdx].hand = [...ps[playerIdx].hand, ...drawn];
+      return ps;
+    });
+    setPendingDraw(null);
+    if (drawn.length > 0) {
+      setFlyingCard({ card: drawn[drawn.length - 1], playerIdx, type: "draw" });
+      setTimeout(() => setFlyingCard(null), 1100);
+    }
+    if (afterDraw === "play") {
+      pushLog(players[playerIdx].name + " берёт " + drawn.length + " карт(у/ы) и может ходить дальше");
+      // stays the same player's turn - currentIdx unchanged
+    } else {
+      pushLog(players[playerIdx].name + " берёт " + drawn.length + " карт(у/ы) и пропускает ход");
+      setCurrentIdx(passTurn(playerIdx, players, direction));
+    }
+  }
+
+  function handleVoluntaryDraw() {
+    let srcDeck = deck;
+    if (srcDeck.length === 0) {
+      setPlayers((prev) => {
+        const ps = prev.map((p) => ({ ...p }));
+        ps[0].score += 10;
+        return ps;
+      });
+      pushLog("Вы +10 очков (колода пуста)");
+      srcDeck = reshuffleDeck();
+      setDeck(srcDeck);
+    }
+    const { drawn, remaining } = drawFromDeck(1, srcDeck, topCard);
+    setDeck(remaining);
+    setPlayers((prev) => {
+      const ps = prev.map((p) => ({ ...p }));
+      ps[0].hand = [...ps[0].hand, ...drawn];
+      return ps;
+    });
+    if (drawn.length > 0) {
+      setFlyingCard({ card: drawn[0], playerIdx: 0, type: "draw" });
+      setTimeout(() => setFlyingCard(null), 1100);
+      pushLog("Вы берёте " + faceOf(drawn[0].rank) + drawn[0].suit);
+    } else {
+      pushLog("Колода пуста");
+    }
+    setVoluntaryDraw(true);
+  }
+
+  function handlePass() {
+    setVoluntaryDraw(false);
+    pushLog(players[0].name + " пропускает ход");
+    setCurrentIdx(passTurn(0, players, direction));
+  }
+
+  // AI turn effect
+  useEffect(() => {
+    if (!players || roundOver || chooseSuitFor) return;
+    const cur = players[currentIdx];
+    if (!cur || !cur.isAI) return;
+    setBotThinking(true);
+    const t = setTimeout(() => {
+      const hand = cur.hand;
+      if (pendingDraw) {
+        const stacker = hand.find((c) => {
+          const r = getRuleForCard(c, rules);
+          return r && r.id === pendingDraw.ruleId && r.stack;
+        });
+        if (stacker) {
+          playCard(currentIdx, stacker);
+        } else {
+          handleForcedDraw(currentIdx);
+        }
+      } else {
+        const legal = hand.filter((c) => canPlayCard(c, topCard, activeSuit, pendingDraw, rules));
+        if (legal.length > 0) {
+          legal.sort((a, b) => {
+            const ra = getRuleForCard(a, rules), rb = getRuleForCard(b, rules);
+            const aAction = ra && ra.action !== "none" ? 1 : 0;
+            const bAction = rb && rb.action !== "none" ? 1 : 0;
+            if (aAction !== bAction) return bAction - aAction;
+            return pointsOf(b, rules) - pointsOf(a, rules);
+          });
+          playCard(currentIdx, legal[0]);
+        } else {
+          let srcDeck = deck;
+          if (srcDeck.length === 0) {
+            setPlayers((prev) => {
+              const ps = prev.map((p) => ({ ...p }));
+              ps[currentIdx].score += 10;
+              return ps;
+            });
+            pushLog(cur.name + " +10 очков (колода пуста)");
+            srcDeck = reshuffleDeck();
+            setDeck(srcDeck);
+          }
+          const { drawn, remaining } = drawFromDeck(1, srcDeck, topCard);
+          if (drawn.length > 0 && canPlayCard(drawn[0], topCard, activeSuit, pendingDraw, rules)) {
+            setDeck(remaining);
+            const label = faceOf(drawn[0].rank) + drawn[0].suit;
+            pushLog(cur.name + " берёт " + label + " из колоды и ходит");
+            finishPlay(currentIdx, drawn[0], null);
+          } else {
+            setDeck(remaining);
+            setPlayers((prev) => {
+              const ps = prev.map((p) => ({ ...p }));
+              ps[currentIdx].hand = [...ps[currentIdx].hand, ...drawn];
+              return ps;
+            });
+            if (drawn.length > 0) {
+              setFlyingCard({ card: drawn[0], playerIdx: currentIdx, type: "draw" });
+              setTimeout(() => setFlyingCard(null), 1100);
+            }
+            if (topCard && topCard.rank === "6") {
+              pushLog(cur.name + " берёт " + (drawn.length > 0 ? faceOf(drawn[0].rank) + drawn[0].suit : "карту") + " (нужно покрыть шестёрку)");
+            } else {
+              pushLog(cur.name + " берёт карту из колоды и пропускает ход");
+              setCurrentIdx(passTurn(currentIdx, players, direction));
+            }
+          }
+        }
+      }
+      setBotThinking(false);
+      // eslint-disable-next-line
+    }, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players, currentIdx, roundOver, chooseSuitFor]);
+
+  // (auto‑draw removed — human decides when to draw)
+
+  if (!players) {
+    return (
+      <div className="k-root">
+        <GlobalStyle />
+        <div className="k-title">🃏 НЕОН 101 🃏</div>
+        <div className="k-subtitle">insert coin — карточная аркада</div>
+        <div className="k-panel k-setup">
+          <div className="k-row">
+            <span className="k-lbl">Игроков всего:</span>
+            {[2, 3, 4].map((n) => (
+              <button key={n} className={"k-chip" + (n === numPlayers ? " active" : "")} onClick={() => setNumPlayers(n)}>
+                {n}
+              </button>
+            ))}
+          </div>
+          <div className="k-row">
+            <span className="k-lbl">Игра до:</span>
+            <input
+              className="k-num"
+              type="number"
+              value={targetScore}
+              min={20}
+              step={1}
+              onChange={(e) => setTargetScore(Number(e.target.value) || 101)}
+            />
+            <span className="k-lbl">очков</span>
+          </div>
+          <button className="k-newgame" onClick={() => startGame(numPlayers)}>▶ Начать игру</button>
+          <button className="k-newgame small" style={{marginTop:8}} onClick={() => window.location.href='index.html'}>← На главную</button>
+        </div>
+      </div>
+    );
+  }
+
+  const me = players[0];
+  const myTurn = currentIdx === 0 && !roundOver && !chooseSuitFor;
+  const myLegal = myTurn ? me.hand.filter((c) => canPlayCard(c, topCard, activeSuit, pendingDraw, rules)) : [];
+  const canStack = myTurn && !!pendingDraw && !pendingDraw?.choice && me.hand.some((c) => {
+    const r = getRuleForCard(c, rules);
+    return r && r.id === pendingDraw.ruleId && r.stack;
+  });
+  const cardDisabled = !myTurn || !!chooseSuitFor || (!!pendingDraw && !pendingDraw?.choice && !canStack) || (topCard?.rank === "6" && myLegal.length === 0);
+
+  return (
+    <div className="k-root">
+      <GlobalStyle />
+      <div className="k-title">🃏 НЕОН 101 🃏</div>
+
+      <div className="k-controls">
+        <button className="k-newgame small" onClick={() => startGame(numPlayers)}>🔄 Новая игра</button>
+        <button className="k-newgame small" onClick={() => window.location.href='index.html'}>← На главную</button>
+      </div>
+
+      <div className="k-scoreboard">
+        {players.map((p, i) => (
+          <div key={i} className={"k-pchip" + (i === currentIdx ? " active" : "")}>
+            <div className="nm">{p.name}{i === 0 ? "" : " 🤖"}</div>
+            <div className="sc">{p.score} / {targetScore}</div>
+            <div className="hc">🂠 × {p.hand.length}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* карты соперников рубашкой вверх */}
+      {players.slice(1).map((p, idx) => (
+        <div key={idx} className="k-opponent-hand">
+          <div className="k-opponent-label">{p.name}</div>
+          <div className="k-opponent-cards">
+            {p.hand.map((c, ci) => (
+              <Card key={ci} faceDown small />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div className="k-table">
+        <div className="k-pile">
+          <div className="k-pile-label">Колода</div>
+          <Card faceDown small />
+          <div className="k-pile-count">{deck.length}</div>
+        </div>
+        <div className="k-discard">
+          {topCard && <Card card={topCard} />}
+          <div className="k-suit-badge">{activeSuit}</div>
+        </div>
+      </div>
+
+      {botThinking && <div className="k-thinking">🤖 бот думает…</div>}
+
+      <div className="k-log">
+        {log.map((l, i) => <div key={i} className="k-log-line" style={{ opacity: 1 - i * 0.15 }}>{l}</div>)}
+      </div>
+
+      {chooseSuitFor && chooseSuitFor.playerIdx === 0 && (
+        <div className="k-suit-inline">
+          <div className="k-suit-inline-lbl">Заказ масти:</div>
+          <div className="k-suit-row">
+            {SUITS.map((s) => (
+              <button key={s.sym} className={"k-suit-btn" + (s.red ? " red" : " black")} onClick={() => confirmSuitChoice(s.sym)}>
+                {s.sym}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {flyingCard && (
+        <div className={"k-flying-card" + (flyingCard.type === "draw" ? (flyingCard.playerIdx === 0 ? " k-draw-bot" : " k-draw-top") : flyingCard.playerIdx === 0 ? " k-from-bot" : " k-from-top")}>
+          <Card card={flyingCard.card} />
+        </div>
+      )}
+      <div className="k-hand-wrap">
+        <div className="k-hand-lbl">
+          {myTurn ? "Ваш ход" : players[currentIdx].name + " ходит…"}
+          {myTurn && selectedCards.length > 0 ? " — выбрано: " + selectedCards.length : ""}
+        </div>
+        <div className={"k-hand" + (shakeSelection ? " k-shake" : "")}>
+          {sortHand(me.hand).map((c, i) => {
+            const n = me.hand.length;
+            const spread = Math.min(50, n * 7);
+            const angle = (i - (n - 1) / 2) * (spread / n);
+            const lift = Math.abs(angle) * 0.6;
+            const zi = Math.round(n - Math.abs(i - (n - 1) / 2));
+            const isSelected = selectedCards.some((sc) => sc.rank === c.rank && sc.suit === c.suit);
+            return (
+              <div
+                key={c.rank + c.suit}
+                className="k-fan-card"
+                style={{ transform: `rotate(${angle}deg) translateY(${lift}px)`, zIndex: zi }}
+              >
+                <Card
+                  card={c}
+                  disabled={cardDisabled}
+                  selected={isSelected}
+                  onClick={() => toggleSelectCard(c)}
+                />
+              </div>
+            );
+          })}
+        </div>
+        {myTurn && selectedCards.length > 0 && (
+          <button className="k-newgame" onClick={attemptPlaySelected}>
+            ▶ Походить ({selectedCards.length})
+          </button>
+        )}
+        {myTurn && selectedCards.length === 0 && pendingDraw && !pendingDraw?.choice && (
+          <button className="k-newgame" onClick={() => handleForcedDraw(0)}>
+            Взять {pendingDraw.amount} карт
+          </button>
+        )}
+        {myTurn && selectedCards.length === 0 && pendingDraw?.choice && (
+          <div className="k-row">
+            <button className="k-newgame small" onClick={() => handleForcedDraw(0, pendingDraw.amount, pendingDraw.afterDraw)}>
+              Взять {pendingDraw.amount} и пропустить ход
+            </button>
+            <button className="k-newgame small" onClick={() => handleForcedDraw(0, pendingDraw.choice.altAmount, pendingDraw.choice.altAfterDraw)}>
+              Взять {pendingDraw.choice.altAmount} и ходить
+            </button>
+          </div>
+        )}
+        {myTurn && selectedCards.length === 0 && !pendingDraw && (!voluntaryDraw || topCard?.rank === "6") && (
+          <button className="k-newgame" onClick={handleVoluntaryDraw}>
+            {topCard?.rank === "6" && myLegal.length === 0 ? "Взять карту (нужно покрыть шестёрку)" : "Взять карту"}
+          </button>
+        )}
+        {myTurn && selectedCards.length === 0 && voluntaryDraw && topCard?.rank !== "6" && (
+          <button className="k-newgame small" onClick={handlePass}>
+            Пропустить ход
+          </button>
+        )}
+      </div>
+
+      {roundResultVisible && roundOver && (
+        <div className="k-overlay">
+          <div className="k-modal">
+            <h2>{roundOver.gameOver ? "ИГРА ОКОНЧЕНА" : "РАУНД ОКОНЧЕН"}</h2>
+            <p className="k-winner-line">
+              Победитель раунда: {roundOver.results[roundOver.winnerIdx]?.name}
+              {roundOver.results[roundOver.winnerIdx]?.gained < 0
+                ? " (концовка вальтом: " + roundOver.results[roundOver.winnerIdx].gained + " очк.)"
+                : ""}
+            </p>
+            <div className="k-results">
+              {roundOver.standings.map((s, i) => (
+                <div key={i} className="k-result-row">
+                  <span>{s.name}</span>
+                  <span>{s.score} очк.</span>
+                </div>
+              ))}
+            </div>
+            {roundOver.gameOver ? (
+              <p className="k-final-note">
+                Побеждает тот, у кого меньше всего очков:{" "}
+                <b>{roundOver.standings.slice().sort((a, b) => a.score - b.score)[0].name}</b>
+              </p>
+            ) : null}
+            <button
+              className="k-newgame"
+              onClick={() => {
+                if (roundOver.gameOver) {
+                  startGame(numPlayers);
+                } else {
+                  dealRound(players, roundOver.winnerIdx);
+                }
+              }}
+            >
+              {roundOver.gameOver ? "🏆 Новая игра" : "▶ Следующий раунд"}
+            </button>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+function GlobalStyle() {
+  return (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap');
+      * { box-sizing: border-box; }
+      .k-root {
+        min-height: 100vh;
+        background: radial-gradient(ellipse at top, #1a1033 0%, #0b0e1a 55%, #060811 100%);
+        color: #ede9ff;
+        font-family: 'Space Mono', monospace;
+        padding: 18px 12px 40px;
+        display: flex; flex-direction: column; align-items: center;
+      }
+      .k-title {
+        font-family: 'Press Start 2P', monospace;
+        font-size: clamp(15px, 4vw, 24px);
+        color: #00f0ff;
+        text-shadow: 0 0 8px #00f0ff, 0 0 22px rgba(0,240,255,0.5);
+        margin: 4px 0 4px; text-align: center; letter-spacing: 2px;
+      }
+      .k-subtitle { color: #ff2e9a; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 16px; opacity: 0.85; }
+
+      .k-panel {
+        background: rgba(18,10,32,0.7);
+        border: 1px solid rgba(0,240,255,0.25);
+        border-radius: 14px;
+        box-shadow: 0 0 24px rgba(0,240,255,0.06);
+        padding: 18px;
+      }
+      .k-setup { display: flex; flex-direction: column; gap: 14px; align-items: center; max-width: 360px; width: 100%; }
+      .k-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+      .k-lbl { font-size: 12px; color: #cfc9f5; }
+
+      .k-chip {
+        background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+        color: #cfc9f5; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-family: 'Space Mono';
+      }
+      .k-chip.active { border-color: #ffb627; background: rgba(255,182,39,0.15); color: #ffe3a3; box-shadow: 0 0 12px rgba(255,182,39,0.35); }
+
+      .k-num { width: 64px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #ede9ff; padding: 6px; font-family: 'Space Mono'; }
+      .k-num.small { width: 50px; }
+
+      .k-btn-outline {
+        background: transparent; border: 1px solid rgba(0,240,255,0.4); color: #8fe3ff;
+        border-radius: 8px; padding: 9px 14px; cursor: pointer; font-family: 'Space Mono'; font-size: 12px;
+      }
+      .k-btn-outline:hover { box-shadow: 0 0 12px rgba(0,240,255,0.35); }
+
+      .k-newgame {
+        font-family: 'Press Start 2P', monospace; font-size: 11px; color: #0b0e1a;
+        background: linear-gradient(180deg, #ffe37a, #ffb627); border: none; border-radius: 10px;
+        padding: 12px 18px; cursor: pointer; box-shadow: 0 0 18px rgba(255,182,39,0.5);
+      }
+      .k-newgame.small { font-size: 9px; padding: 9px 12px; }
+      .k-newgame:hover { filter: brightness(1.08); }
+
+      .k-controls { display: flex; gap: 10px; margin-bottom: 14px; }
+
+      .k-scoreboard { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 12px; }
+      .k-pchip {
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px;
+        padding: 8px 12px; text-align: center; min-width: 90px; font-size: 10px;
+      }
+      .k-pchip.active { border-color: #00f0ff; box-shadow: 0 0 14px rgba(0,240,255,0.4); }
+      .k-pchip .nm { font-weight: 700; margin-bottom: 3px; }
+      .k-pchip .sc { color: #ffb627; }
+      .k-pchip .hc { color: #8fe3ff; opacity: 0.8; }
+
+      .k-table { display: flex; gap: 24px; align-items: center; justify-content: center; margin: 10px 0; position: relative; flex-wrap: wrap; }
+      .k-pile, .k-discard { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
+      .k-pile-label { font-size: 9px; color: #8fe3ff; letter-spacing: 1px; }
+      .k-pile-count { font-size: 10px; color: #cfc9f5; }
+      .k-suit-badge {
+        position: absolute; bottom: -10px; right: -10px;
+        background: #150a28; border: 1px solid #00f0ff; border-radius: 50%;
+        width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+        font-size: 14px; box-shadow: 0 0 10px rgba(0,240,255,0.5);
+      }
+      .k-attack {
+        font-size: 11px; color: #ff2e5a; font-family: 'Press Start 2P', monospace; font-size: 9px;
+        animation: k-blink 0.7s infinite; text-align: center; width: 100%;
+      }
+      @keyframes k-blink { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+
+      .k-thinking { color: #ff2e9a; font-size: 11px; margin-bottom: 6px; }
+
+      .k-log { width: min(92vw, 480px); font-size: 10px; color: rgba(237,233,255,0.55); margin-bottom: 8px; text-align: center; min-height: 16px; }
+      .k-log-line { margin: 1px 0; }
+
+      .k-opponent-hand { display: flex; flex-direction: column; align-items: center; margin-bottom: 8px; width: 100%; max-width: 640px; }
+      .k-opponent-label { font-size: 10px; color: #8fe3ff; letter-spacing: 1px; margin-bottom: 3px; }
+
+      .k-hand-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; max-width: 640px; }
+      .k-hand-lbl { font-size: 11px; color: #8fe3ff; letter-spacing: 1px; }
+      .k-hand { display: flex; justify-content: center; align-items: flex-end; padding: 10px 0 6px; min-height: 96px; }
+      .k-fan-card { display: inline-flex; align-items: flex-end; }
+      .k-fan-card .k-card { transform-origin: bottom center; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+      .k-fan-card:hover { z-index: 100 !important; }
+      .k-fan-card:hover .k-card { transform: translateY(-10px); }
+      .k-fan-card .k-card.selected { transform: translateY(-14px); box-shadow: 0 0 16px 3px #ffb627; border-color: #ffb627; }
+      .k-fan-card .k-card.disabled { transform: none !important; }
+      .k-fan-card:hover .k-card.disabled { transform: none !important; }
+      .k-opponent-cards { display: flex; gap: 2px; justify-content: center; }
+      .k-opponent-cards > * { margin-right: -16px; position: relative; }
+      .k-opponent-cards > *:last-child { margin-right: 0; }
+
+      .k-card {
+        width: 54px; height: 76px; border-radius: 8px; background: #f4f2ff;
+        display: flex; flex-direction: column; justify-content: space-between;
+        padding: 4px; cursor: pointer; position: relative; user-select: none;
+        border: 1px solid rgba(0,0,0,0.3);
+        outline: 1px solid rgba(255,255,255,0.2);
+        outline-offset: -2px;
+        box-shadow:
+          0 0 6px rgba(0,240,255,0.18),
+          0 0 0 1px rgba(0,0,0,0.08);
+      }
+      .k-card.small { width: 40px; height: 56px; }
+      .k-card.disabled { opacity: 0.35; cursor: not-allowed; filter: grayscale(0.6); }
+      .k-card.red { color: #d4145a; }
+      .k-card.black { color: #1a1330; }
+
+      .k-shake { animation: k-shake-anim 0.4s; }
+      @keyframes k-shake-anim {
+        0%, 100% { transform: translateX(0); }
+        20% { transform: translateX(-8px); }
+        40% { transform: translateX(8px); }
+        60% { transform: translateX(-6px); }
+        80% { transform: translateX(6px); }
+      }
+
+      .k-suit-inline {
+        display: flex; flex-direction: column; align-items: center; gap: 6px;
+        background: rgba(18,10,32,0.85); border: 1px solid rgba(255,182,39,0.4);
+        border-radius: 12px; padding: 10px 14px; margin-bottom: 10px;
+        box-shadow: 0 0 16px rgba(255,182,39,0.15);
+      }
+      .k-suit-inline-lbl { font-size: 11px; color: #ffe3a3; letter-spacing: 1px; }
+      .k-rank { font-size: 13px; font-weight: 700; line-height: 1; }
+      .k-rank.bottom { align-self: flex-end; transform: rotate(180deg); }
+      .k-suit-big { font-size: 22px; align-self: center; }
+
+      .k-flying-card {
+        position: fixed; top: 50%; left: 50%; z-index: 100;
+        pointer-events: none;
+        will-change: transform;
+        animation-duration: 1s;
+        animation-timing-function: cubic-bezier(0.18, 0.88, 0.32, 1.08);
+        animation-fill-mode: forwards;
+      }
+      .k-flying-card.k-from-bot { animation-name: k-fly-bot; }
+      .k-flying-card.k-from-top { animation-name: k-fly-top; }
+      .k-flying-card.k-draw-bot { animation-name: k-draw-bot; }
+      .k-flying-card.k-draw-top { animation-name: k-draw-top; }
+      @keyframes k-fly-bot {
+        0%   { transform: translate(-50%, 60vh) rotate(-7deg) scale(0.3); opacity: 0.2; }
+        25%  { transform: translate(-50%, 8vh) rotate(-3deg) scale(0.65); opacity: 0.7; }
+        50%  { transform: translate(-50%, -32%) rotate(-0.5deg) scale(1.02); opacity: 1; }
+        75%  { transform: translate(-50%, -53%) rotate(0.4deg) scale(1.07); opacity: 1; }
+        100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 1; }
+      }
+      @keyframes k-fly-top {
+        0%   { transform: translate(-50%, -60vh) rotate(7deg) scale(0.3); opacity: 0.2; }
+        25%  { transform: translate(-50%, -10vh) rotate(3deg) scale(0.65); opacity: 0.7; }
+        50%  { transform: translate(-50%, -32%) rotate(0.5deg) scale(1.02); opacity: 1; }
+        75%  { transform: translate(-50%, -47%) rotate(-0.4deg) scale(1.07); opacity: 1; }
+        100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 1; }
+      }
+      @keyframes k-draw-bot {
+        0%   { transform: translate(-50%, -50%) scale(0.35); opacity: 0.6; }
+        35%  { transform: translate(-50%, 15vh) scale(0.55); opacity: 0.85; }
+        65%  { transform: translate(-50%, 35vh) scale(0.5); opacity: 0.5; }
+        100% { transform: translate(-50%, 55vh) scale(0.4); opacity: 0; }
+      }
+      @keyframes k-draw-top {
+        0%   { transform: translate(-50%, -50%) scale(0.35); opacity: 0.6; }
+        35%  { transform: translate(-50%, -18vh) scale(0.55); opacity: 0.85; }
+        65%  { transform: translate(-50%, -38vh) scale(0.5); opacity: 0.5; }
+        100% { transform: translate(-50%, -55vh) scale(0.4); opacity: 0; }
+      }
+
+      .k-back {
+        background: repeating-linear-gradient(45deg, #2d1b4e, #2d1b4e 6px, #1a1033 6px, #1a1033 12px);
+        border: 1px solid #00f0ff; box-shadow: 0 0 10px rgba(0,240,255,0.4);
+      }
+
+      .k-overlay { position: fixed; inset: 0; background: rgba(6,8,17,0.87); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+      .k-modal { background: #150a28; border: 1px solid rgba(0,240,255,0.4); border-radius: 16px; padding: 24px; text-align: center; box-shadow: 0 0 40px rgba(0,240,255,0.2); max-width: 420px; width: 100%; max-height: 86vh; overflow-y: auto; }
+      .k-modal h2 { font-family: 'Press Start 2P', monospace; font-size: 15px; color: #ffb627; text-shadow: 0 0 12px #ffb627; margin: 0 0 14px; }
+      .k-winner-line { font-size: 12px; color: #8fe3ff; }
+      .k-results { display: flex; flex-direction: column; gap: 4px; margin: 12px 0; font-size: 12px; }
+      .k-result-row { display: flex; justify-content: space-between; padding: 4px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; }
+      .k-final-note { font-size: 11px; color: #cfc9f5; }
+
+      .k-suit-row { display: flex; gap: 10px; justify-content: center; }
+      .k-suit-btn { font-size: 30px; background: rgba(255,255,255,0.05); border: 1px solid rgba(0,240,255,0.3); border-radius: 10px; padding: 10px 16px; cursor: pointer; }
+      .k-suit-btn.red { color: #d4145a; }
+      .k-suit-btn.black { color: #ede9ff; }
+      .k-suit-btn:hover { border-color: #00f0ff; box-shadow: 0 0 14px rgba(0,240,255,0.4); }
+
+      .k-rules-modal { max-width: 640px; text-align: left; }
+      .k-rules-list { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; padding-right: 4px; }
+      .k-rule-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: rgba(255,255,255,0.03); border-radius: 8px; padding: 8px; font-size: 11px; }
+      .k-rule-name { min-width: 140px; font-weight: 700; color: #ede9ff; }
+      .k-select { background: rgba(255,255,255,0.06); color: #ede9ff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 5px; font-family: 'Space Mono'; font-size: 11px; }
+      .k-check { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #cfc9f5; }
+      .k-points-lbl { font-size: 10px; color: #8fe3ff; }
+    `}</style>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<Game101 />);
+</script>
+</body>
+</html>
